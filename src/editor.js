@@ -467,6 +467,30 @@ export class SvgEditor {
         this.saveHistory();
     }
 
+    bringToFrontSelected() {
+        if (this.selectedItems.length === 0) return;
+        // Sort by index descending to preserve relative order when moving up
+        const sorted = [...this.selectedItems].sort((a, b) => b.index - a.index);
+        sorted.forEach(item => {
+            const next = item.nextSibling;
+            if (next) item.insertAbove(next);
+        });
+        this.updateTransformUI();
+        this.saveHistory();
+    }
+
+    sendToBackSelected() {
+        if (this.selectedItems.length === 0) return;
+        // Sort by index ascending to preserve relative order when moving down
+        const sorted = [...this.selectedItems].sort((a, b) => a.index - b.index);
+        sorted.forEach(item => {
+            const prev = item.previousSibling;
+            if (prev) item.insertBelow(prev);
+        });
+        this.updateTransformUI();
+        this.saveHistory();
+    }
+
     ungroupSelectedItems() {
         const groups = this.selectedItems.filter(item => item instanceof paper.Group);
         if (groups.length === 0) return;

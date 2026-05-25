@@ -23,6 +23,8 @@ const ctxDeleteBtn = document.getElementById('ctx-delete');
 const ctxCopyBtn = document.getElementById('ctx-copy');
 const ctxDownloadBtn = document.getElementById('ctx-download');
 const ctxDuplicateBtn = document.getElementById('ctx-duplicate');
+const ctxFrontBtn = document.getElementById('ctx-front');
+const ctxBackBtn = document.getElementById('ctx-back');
 const ctxGroupBtn = document.getElementById('ctx-group');
 const ctxUngroupBtn = document.getElementById('ctx-ungroup');
 
@@ -74,6 +76,16 @@ window.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Backspace') {
         e.preventDefault();
         editor.ungroupSelectedItems();
+    }
+
+    // [ (Send to Back)
+    if (e.key === '[') {
+        editor.sendToBackSelected();
+    }
+
+    // ] (Bring to Front)
+    if (e.key === ']') {
+        editor.bringToFrontSelected();
     }
 
     // Ctrl+C (Copy)
@@ -228,6 +240,16 @@ ctxDownloadBtn.addEventListener('click', () => {
 
 ctxDuplicateBtn.addEventListener('click', () => {
     editor.duplicateSelectedItems();
+    contextMenu.classList.add('hidden');
+});
+
+ctxFrontBtn.addEventListener('click', () => {
+    editor.bringToFrontSelected();
+    contextMenu.classList.add('hidden');
+});
+
+ctxBackBtn.addEventListener('click', () => {
+    editor.sendToBackSelected();
     contextMenu.classList.add('hidden');
 });
 
