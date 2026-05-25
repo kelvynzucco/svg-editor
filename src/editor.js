@@ -173,6 +173,14 @@ export class SvgEditor {
         window.dispatchEvent(event);
     }
 
+    deleteSelectedItem() {
+        if (this.selectedItem) {
+            this.selectedItem.remove();
+            this.setSelected(null);
+            this.view.update();
+        }
+    }
+
     exportSVG() {
         const svg = this.project.exportSVG({ asString: true });
         const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });

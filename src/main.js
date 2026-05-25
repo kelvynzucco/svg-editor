@@ -1,6 +1,7 @@
 import './style.css';
 import { SvgEditor } from './editor';
 import { align, flip } from './tools/transform';
+import paper from 'paper';
 
 // Initialize Editor
 const editor = new SvgEditor('editor-canvas');
@@ -15,6 +16,10 @@ const svgCodeInput = document.getElementById('svg-code-input');
 
 const exportFileBtn = document.getElementById('export-file');
 const copyCodeBtn = document.getElementById('copy-code');
+
+const contextMenu = document.getElementById('context-menu');
+const ctxDeleteBtn = document.getElementById('ctx-delete');
+const ctxCopyBtn = document.getElementById('ctx-copy');
 
 const alignBtns = {
     tl: document.getElementById('align-tl'),
@@ -35,6 +40,78 @@ window.addEventListener('selectionChanged', (e) => {
     
     Object.values(alignBtns).forEach(btn => btn.disabled = !hasSelection);
     Object.values(flipBtns).forEach(btn => btn.disabled = !hasSelection);
+});
+
+// Keyboard Shortcuts
+window.addEventListener('keydown', (e) => {
+    // Check if user is typing in an input or textarea
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+        editor.deleteSelectedItem();
+    }
+});
+
+// Context Menu Logic
+editor.canvas.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    
+    // Check if we clicked on an item to select it first
+    const rect = editor.canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    // Convert DOM coordinates to project coordinates
+    const point = editor.view.viewToProject(new paper.Point(x, y));
+    const hitResult = editor.project.hitTest(point, {
+        segments: true,
+        stroke: true,
+        fill: true,
+        tolerance: 10
+    });
+
+    if (hitResult && hitResult.item) {
+        let item = hitResult.item;
+        while (item.parent && item.parent !== editor.project.activeLayer) {
+            item = item.parent;
+        }
+        editor.setSelected(item);
+    }
+
+    if (editor.selectedItem) {
+        contextMenu.style.left = `${e.clientX}px`;
+        contextMenu.style.top = `${e.clientY}px`;
+        contextMenu.classList.remove('hidden');
+    }
+});
+
+window.addEventListener('click', () => {
+    contextMenu.classList.add('hidden');
+});
+
+ctxDeleteBtn.addEventListener('click', () => {
+    editor.deleteSelectedItem();
+    contextMenu.classList.add('hidden');
+});
+
+ctxCopyBtn.addEventListener('click', () => {
+    if (editor.selectedItem) {
+        // Export the project but restricted to the selected item's bounds
+        // This ensures we get a full <svg> tag with a proper viewBox
+        const svgCode = editor.project.exportSVG({ 
+            asString: true,
+            bounds: editor.selectedItem.strokeBounds 
+        });
+        
+        navigator.clipboard.writeText(svgCode).then(() => {
+            const originalText = ctxCopyBtn.innerText;
+            ctxCopyBtn.innerText = 'Copied!';
+            setTimeout(() => {
+                ctxCopyBtn.innerText = originalText;
+            }, 1500);
+        });
+    }
+    contextMenu.classList.add('hidden');
 });
 
 // Import Handlers

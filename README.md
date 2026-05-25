@@ -9,6 +9,7 @@ A lightweight, browser-based SVG editor built with **Vite**, **Paper.js**, and *
 - **Manipulation Tools:**
   - **Alignment:** Quickly align elements to the top-left, top-right, bottom-left, bottom-right, or center of the view.
   - **Transformations:** Flip elements horizontally or vertically.
+  - **Deletion:** Remove selected elements using the **Delete** or **Backspace** keys, or via the **Right-Click Context Menu**.
 - **Export Options:**
   - **Download .svg:** Save your work as a standard SVG file.
   - **Copy SVG Code:** Copy the generated SVG code directly to your clipboard.
