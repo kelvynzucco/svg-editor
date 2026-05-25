@@ -357,6 +357,7 @@ Object.entries(alignBtns).forEach(([pos, btn]) => {
     if (btn) {
         btn.addEventListener('click', () => {
             align(editor.selectedItems, pos, editor.project.view);
+            editor.updateTransformUI(); // Refresh handles position
             editor.saveHistory();
         });
     }
