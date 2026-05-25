@@ -174,7 +174,7 @@ export class SvgEditor {
             const point = event.point;
             hasDuplicatedOnDrag = false;
 
-            // 1. Hit test UI Layer handles first
+            // 1. Hit test UI Layer handles first (Rotation/Scale)
             const uiHit = this.uiLayer.hitTest(point, { tolerance: 10, fill: true, stroke: true });
             if (uiHit && uiHit.item && uiHit.item.data) {
                 handleType = uiHit.item.data.type;
@@ -201,37 +201,42 @@ export class SvgEditor {
                 }
             }
 
-            // 2. Check if clicking on existing selection to drag
-            const hitSelected = this.selectedItems.some(item => item.bounds.contains(point));
-            if (hitSelected && !event.modifiers.shift) {
-                isDragging = true;
-                this.canvas.style.cursor = 'move';
-                // Hide handles while dragging for better visibility
-                this.uiLayer.visible = false;
-                return;
-            }
-
-            // 3. Hit test drawing layer
+            // 2. Hit test drawing layer (find if we clicked ON something)
             const hitResult = this.drawLayer.hitTest(point, { 
                 segments: true, stroke: true, fill: true, tolerance: 10, curves: true 
             });
 
             if (hitResult && hitResult.item) {
                 let item = hitResult.item;
+                // Traverse up to find the top-most parent in the draw layer (for groups)
                 while (item.parent && item.parent !== this.drawLayer) item = item.parent;
                 
                 if (event.modifiers.shift) {
                     item.selected ? this.removeFromSelection(item) : this.addToSelection(item);
                 } else {
-                    this.setSelected(item);
+                    // If clicking an item that's already in a multi-selection, just drag
+                    if (!item.selected) {
+                        this.setSelected(item);
+                    }
                     isDragging = true;
+                    this.canvas.style.cursor = 'move';
                     this.uiLayer.visible = false;
                 }
-            } else {
-                // Clicking on empty space
-                if (!event.modifiers.shift) this.setSelected(null);
-                startPoint = point;
+                return;
             }
+
+            // 3. Fallback: Check if clicking inside the BOUNDS of existing selection (for dragging empty areas of a group)
+            const hitSelectedBounds = this.selectedItems.some(item => item.strokeBounds.contains(point));
+            if (hitSelectedBounds && !event.modifiers.shift) {
+                isDragging = true;
+                this.canvas.style.cursor = 'move';
+                this.uiLayer.visible = false;
+                return;
+            }
+
+            // 4. Empty space click
+            if (!event.modifiers.shift) this.setSelected(null);
+            startPoint = point;
         };
 
         this.tool.onMouseDrag = (event) => {
