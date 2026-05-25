@@ -111,24 +111,29 @@
     <script type="module" src="/src/main.js"></script>
 
     <!-- Context Menu -->
-    <div id="context-menu" class="fixed hidden bg-white border border-gray-200 shadow-lg rounded-md py-1 z-[60] min-w-[150px]">
-      <button id="ctx-copy" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition border-b border-gray-100">
-        Copy Selection to Code
+    <div id="context-menu" class="fixed hidden bg-white border border-gray-200 shadow-lg rounded-md py-1 z-[60] min-w-[200px]">
+      <button id="ctx-copy" class="w-full flex justify-between items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition border-b border-gray-100">
+        <span>Copy Selection to Code</span>
+        <span class="text-xs text-gray-400 ml-4 font-mono">Ctrl+C</span>
       </button>
-      <button id="ctx-download" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition border-b border-gray-100">
-        Download .svg
+      <button id="ctx-download" class="w-full flex justify-between items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition border-b border-gray-100">
+        <span>Download .svg</span>
       </button>
-      <button id="ctx-duplicate" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition border-b border-gray-100">
-        Duplicate
+      <button id="ctx-duplicate" class="w-full flex justify-between items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition border-b border-gray-100">
+        <span>Duplicate</span>
+        <span class="text-xs text-gray-400 ml-4 font-mono">Alt+Drag</span>
       </button>
-      <button id="ctx-group" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition border-b border-gray-100">
-        Group
+      <button id="ctx-group" class="w-full flex justify-between items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition border-b border-gray-100">
+        <span>Group</span>
+        <span class="text-xs text-gray-400 ml-4 font-mono">Ctrl+G</span>
       </button>
-      <button id="ctx-ungroup" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition border-b border-gray-100">
-        Ungroup
+      <button id="ctx-ungroup" class="w-full flex justify-between items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition border-b border-gray-100">
+        <span>Ungroup</span>
+        <span class="text-xs text-gray-400 ml-4 font-mono">Ctrl+BS</span>
       </button>
-      <button id="ctx-delete" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 transition">
-        Delete
+      <button id="ctx-delete" class="w-full flex justify-between items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100 transition">
+        <span>Delete</span>
+        <span class="text-xs text-red-300 ml-4 font-mono">Del</span>
       </button>
     </div>
   </body>
