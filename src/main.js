@@ -23,6 +23,8 @@ const ctxDeleteBtn = document.getElementById('ctx-delete');
 const ctxCopyBtn = document.getElementById('ctx-copy');
 const ctxDownloadBtn = document.getElementById('ctx-download');
 const ctxDuplicateBtn = document.getElementById('ctx-duplicate');
+const ctxFlipHBtn = document.getElementById('ctx-flip-h');
+const ctxFlipVBtn = document.getElementById('ctx-flip-v');
 const ctxFrontBtn = document.getElementById('ctx-front');
 const ctxBackBtn = document.getElementById('ctx-back');
 const ctxGroupBtn = document.getElementById('ctx-group');
@@ -37,18 +39,12 @@ const alignBtns = {
     bottom: document.getElementById('align-bottom')
 };
 
-const flipBtns = {
-    h: document.getElementById('flip-h'),
-    v: document.getElementById('flip-v')
-};
-
 // Handle Selection UI Updates
 window.addEventListener('selectionChanged', (e) => {
     const hasSelection = e.detail.items && e.detail.items.length > 0;
     
     Object.values(alignBtns).forEach(btn => btn.disabled = !hasSelection);
-    Object.values(flipBtns).forEach(btn => btn.disabled = !hasSelection);
-
+    
     // Update Style UI
     if (hasSelection) {
         const style = editor.getSelectionStyle();
@@ -144,6 +140,18 @@ window.addEventListener('keydown', (e) => {
     // ] (Bring to Front)
     if (e.key === ']') {
         editor.bringToFrontSelected();
+    }
+
+    // Shift + H (Flip Horizontal)
+    if (e.shiftKey && e.key.toUpperCase() === 'H') {
+        flip(editor.selectedItems, 'h');
+        editor.saveHistory();
+    }
+
+    // Shift + V (Flip Vertical)
+    if (e.shiftKey && e.key.toUpperCase() === 'V') {
+        flip(editor.selectedItems, 'v');
+        editor.saveHistory();
     }
 
     // Ctrl+C (Copy)
@@ -298,6 +306,18 @@ ctxDownloadBtn.addEventListener('click', () => {
 
 ctxDuplicateBtn.addEventListener('click', () => {
     editor.duplicateSelectedItems();
+    contextMenu.classList.add('hidden');
+});
+
+ctxFlipHBtn.addEventListener('click', () => {
+    flip(editor.selectedItems, 'h');
+    editor.saveHistory();
+    contextMenu.classList.add('hidden');
+});
+
+ctxFlipVBtn.addEventListener('click', () => {
+    flip(editor.selectedItems, 'v');
+    editor.saveHistory();
     contextMenu.classList.add('hidden');
 });
 
