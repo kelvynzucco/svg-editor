@@ -46,10 +46,10 @@
           <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Export</h2>
           <div class="flex flex-col gap-2">
             <button id="export-file" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded transition text-sm">
-              Download .svg
+              Download Canvas .svg
             </button>
             <button id="copy-code" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded transition text-sm">
-              Copy SVG Code
+              Copy Canvas to Code
             </button>
           </div>
         </section>
@@ -78,11 +78,15 @@
     <!-- Context Menu -->
     <div id="context-menu" class="fixed hidden bg-white border border-gray-200 shadow-lg rounded-md py-1 z-[60] min-w-[150px]">
       <button id="ctx-copy" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition border-b border-gray-100">
-        Copy SVG Code
+        Copy Selection to Code
+      </button>
+      <button id="ctx-download" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition border-b border-gray-100">
+        Download .svg
       </button>
       <button id="ctx-delete" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 transition">
         Delete
       </button>
     </div>
   </body>
+</html>
 </html>

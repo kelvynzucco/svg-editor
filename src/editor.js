@@ -183,12 +183,22 @@ export class SvgEditor {
 
     exportSVG() {
         const svg = this.project.exportSVG({ asString: true });
-        const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+        this._downloadSVG(svg, 'canvas-export.svg');
+    }
+
+    downloadSelectedSVG() {
+        if (!this.selectedItem) return;
+        const svg = this.getSelectedSVGString();
+        this._downloadSVG(svg, 'selection-export.svg');
+    }
+
+    _downloadSVG(svgContent, fileName) {
+        const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'edited-svg.svg';
+        link.download = fileName;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -197,5 +207,46 @@ export class SvgEditor {
 
     getSVGString() {
         return this.project.exportSVG({ asString: true });
+    }
+
+    getSelectedSVGString() {
+        if (!this.selectedItem) return '';
+        
+        // 1. Clone the item to avoid modifying the original in the project
+        const clone = this.selectedItem.clone({ insert: false });
+        
+        // 2. Use strokeBounds to ensure we capture the entire visual area including strokes
+        const bounds = this.selectedItem.strokeBounds;
+        
+        // 3. Translate the clone to the origin (0,0)
+        // We subtract the top-left coordinates of the stroke bounds
+        clone.translate(new paper.Point(-bounds.x, -bounds.y));
+        
+        // 4. Export the normalized item to a DOM element
+        const exportedElement = clone.exportSVG();
+        
+        // 5. Create a clean root <svg> element
+        const rootSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        rootSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        rootSvg.setAttribute('viewBox', `0 0 ${bounds.width} ${bounds.height}`);
+        rootSvg.setAttribute('width', bounds.width);
+        rootSvg.setAttribute('height', bounds.height);
+
+        // 6. Handle potential nested <svg> tags from Paper.js export
+        if (exportedElement.tagName.toLowerCase() === 'svg') {
+            // Extract children from the inner <svg> to flatten the structure
+            while (exportedElement.firstChild) {
+                rootSvg.appendChild(exportedElement.firstChild);
+            }
+        } else {
+            rootSvg.appendChild(exportedElement);
+        }
+        
+        const result = rootSvg.outerHTML;
+        
+        // 7. Cleanup the temporary clone
+        clone.remove();
+        
+        return result;
     }
 }

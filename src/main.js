@@ -20,6 +20,7 @@ const copyCodeBtn = document.getElementById('copy-code');
 const contextMenu = document.getElementById('context-menu');
 const ctxDeleteBtn = document.getElementById('ctx-delete');
 const ctxCopyBtn = document.getElementById('ctx-copy');
+const ctxDownloadBtn = document.getElementById('ctx-download');
 
 const alignBtns = {
     tl: document.getElementById('align-tl'),
@@ -47,8 +48,81 @@ window.addEventListener('keydown', (e) => {
     // Check if user is typing in an input or textarea
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
+    // Delete Shortcut
     if (e.key === 'Delete' || e.key === 'Backspace') {
         editor.deleteSelectedItem();
+    }
+
+    // Ctrl+C (Copy)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        copySelectedToClipboard();
+    }
+
+    // Ctrl+X (Cut)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'x') {
+        copySelectedToClipboard().then(() => {
+            editor.deleteSelectedItem();
+        });
+    }
+});
+
+// Helper to copy selected item
+async function copySelectedToClipboard() {
+    if (editor.selectedItem) {
+        const svgCode = editor.getSelectedSVGString();
+        
+        try {
+            await navigator.clipboard.writeText(svgCode);
+            // Optional: Provide some visual feedback? 
+            // Since there's no UI for this, we'll just log or trust the clipboard
+        } catch (err) {
+            console.error('Failed to copy to clipboard:', err);
+        }
+    }
+}
+
+// Paste Handler
+window.addEventListener('paste', async (e) => {
+    // Check if user is typing in an input or textarea
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    const clipboardData = e.clipboardData;
+    if (!clipboardData) return;
+
+    const isSvgCode = (str) => {
+        const s = str.trim();
+        return s.startsWith('<svg') || (s.startsWith('<?xml') && s.includes('<svg'));
+    };
+
+    // 1. Try image/svg+xml first (most specific)
+    const items = clipboardData.items;
+    for (const item of items) {
+        if (item.type === 'image/svg+xml') {
+            const file = item.getAsFile();
+            const text = await file.text();
+            if (text) {
+                editor.importSVG(text).catch(err => console.error('Error pasting image/svg+xml:', err));
+                return;
+            }
+        }
+    }
+
+    // 2. Check for text/plain (standard SVG code)
+    const text = clipboardData.getData('text/plain');
+    if (text && isSvgCode(text)) {
+        editor.importSVG(text).catch(err => console.error('Error pasting text/plain SVG:', err));
+        return;
+    }
+
+    // 3. Check for text/html (Figma/Illustrator often wrap SVG in HTML)
+    const html = clipboardData.getData('text/html');
+    if (html && html.includes('<svg')) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const svgElement = doc.querySelector('svg');
+        if (svgElement) {
+            editor.importSVG(svgElement.outerHTML).catch(err => console.error('Error pasting text/html SVG:', err));
+        }
     }
 });
 
@@ -96,12 +170,8 @@ ctxDeleteBtn.addEventListener('click', () => {
 
 ctxCopyBtn.addEventListener('click', () => {
     if (editor.selectedItem) {
-        // Export the project but restricted to the selected item's bounds
-        // This ensures we get a full <svg> tag with a proper viewBox
-        const svgCode = editor.project.exportSVG({ 
-            asString: true,
-            bounds: editor.selectedItem.strokeBounds 
-        });
+        // Export only the selected item wrapped in an <svg> tag
+        const svgCode = editor.getSelectedSVGString();
         
         navigator.clipboard.writeText(svgCode).then(() => {
             const originalText = ctxCopyBtn.innerText;
@@ -111,6 +181,11 @@ ctxCopyBtn.addEventListener('click', () => {
             }, 1500);
         });
     }
+    contextMenu.classList.add('hidden');
+});
+
+ctxDownloadBtn.addEventListener('click', () => {
+    editor.downloadSelectedSVG();
     contextMenu.classList.add('hidden');
 });
 
@@ -160,16 +235,18 @@ Object.entries(flipBtns).forEach(([axis, btn]) => {
     });
 });
 
-// Export Handlers
+// Export Handlers (Canvas Scope)
 exportFileBtn.addEventListener('click', () => {
+    // editor.exportSVG() already exports the whole project by default
     editor.exportSVG();
 });
 
 copyCodeBtn.addEventListener('click', () => {
+    // Get the full project SVG string
     const svgCode = editor.getSVGString();
     navigator.clipboard.writeText(svgCode).then(() => {
         const originalText = copyCodeBtn.innerText;
-        copyCodeBtn.innerText = 'Copied!';
+        copyCodeBtn.innerText = 'Canvas Copied!';
         copyCodeBtn.classList.replace('bg-indigo-600', 'bg-green-600');
         
         setTimeout(() => {
@@ -178,6 +255,6 @@ copyCodeBtn.addEventListener('click', () => {
         }, 2000);
     }).catch(err => {
         console.error('Failed to copy: ', err);
-        alert('Could not copy to clipboard.');
+        alert('Could not copy canvas to clipboard.');
     });
 });
