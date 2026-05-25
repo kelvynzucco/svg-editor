@@ -16,6 +16,7 @@ const svgCodeInput = document.getElementById('svg-code-input');
 
 const exportFileBtn = document.getElementById('export-file');
 const copyCodeBtn = document.getElementById('copy-code');
+const clearCanvasBtn = document.getElementById('clear-canvas');
 
 const contextMenu = document.getElementById('context-menu');
 const ctxDeleteBtn = document.getElementById('ctx-delete');
@@ -262,9 +263,28 @@ Object.entries(flipBtns).forEach(([axis, btn]) => {
 });
 
 // Export Handlers (Canvas Scope)
+const filenameModal = document.getElementById('filename-modal');
+const filenameInput = document.getElementById('filename-input');
+const closeFilenameModalBtn = document.getElementById('close-filename-modal');
+const confirmFilenameBtn = document.getElementById('confirm-filename');
+
 exportFileBtn.addEventListener('click', () => {
-    // editor.exportSVG() already exports the whole project by default
-    editor.exportSVG();
+    filenameModal.classList.remove('hidden');
+    filenameInput.focus();
+    filenameInput.select();
+});
+
+closeFilenameModalBtn.addEventListener('click', () => {
+    filenameModal.classList.add('hidden');
+});
+
+confirmFilenameBtn.addEventListener('click', () => {
+    let fileName = filenameInput.value.trim();
+    if (!fileName) fileName = 'my-design';
+    if (!fileName.endsWith('.svg')) fileName += '.svg';
+    
+    editor.exportSVG(fileName);
+    filenameModal.classList.add('hidden');
 });
 
 copyCodeBtn.addEventListener('click', () => {
@@ -283,4 +303,22 @@ copyCodeBtn.addEventListener('click', () => {
         console.error('Failed to copy: ', err);
         alert('Could not copy canvas to clipboard.');
     });
+});
+
+// Clear Canvas Logic
+const confirmModal = document.getElementById('confirm-modal');
+const cancelClearBtn = document.getElementById('cancel-clear');
+const confirmClearBtn = document.getElementById('confirm-clear');
+
+clearCanvasBtn.addEventListener('click', () => {
+    confirmModal.classList.remove('hidden');
+});
+
+cancelClearBtn.addEventListener('click', () => {
+    confirmModal.classList.add('hidden');
+});
+
+confirmClearBtn.addEventListener('click', () => {
+    editor.clearCanvas();
+    confirmModal.classList.add('hidden');
 });

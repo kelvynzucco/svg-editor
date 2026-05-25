@@ -48,10 +48,13 @@
           <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Export</h2>
           <div class="flex flex-col gap-2">
             <button id="export-file" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded transition text-sm">
-              Download Canvas .svg
+              Save Canvas to .svg
             </button>
             <button id="copy-code" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded transition text-sm">
               Copy Canvas to Code
+            </button>
+            <button id="clear-canvas" class="text-xs text-red-500 hover:text-red-700 underline mt-2 transition text-center w-full">
+              Clear Canvas
             </button>
           </div>
         </section>
@@ -71,6 +74,36 @@
         <div class="flex justify-end gap-3">
           <button id="close-modal" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded transition">Cancel</button>
           <button id="confirm-code" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">Import</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal for Clear Confirmation (Hidden by default) -->
+    <div id="confirm-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-[70]">
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+        <h3 class="text-lg font-bold mb-2 text-red-600">Clear Canvas</h3>
+        <p class="text-gray-600 mb-6">Are you sure you want to clear the canvas? All unsaved work will be lost.</p>
+        <div class="flex justify-end gap-3">
+          <button id="cancel-clear" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded transition">Cancel</button>
+          <button id="confirm-clear" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition">Clear Everything</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal for Filename Input (Hidden by default) -->
+    <div id="filename-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-[80]">
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+        <h3 class="text-lg font-bold mb-4">Save SVG</h3>
+        <div class="mb-4">
+          <label for="filename-input" class="block text-sm font-medium text-gray-700 mb-1">Filename</label>
+          <div class="flex items-center border rounded overflow-hidden">
+            <input type="text" id="filename-input" class="flex-1 p-2 outline-none text-sm" placeholder="my-design" value="my-design">
+            <span class="bg-gray-100 px-3 py-2 text-gray-500 text-sm">.svg</span>
+          </div>
+        </div>
+        <div class="flex justify-end gap-3">
+          <button id="close-filename-modal" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded transition">Cancel</button>
+          <button id="confirm-filename" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition">Save</button>
         </div>
       </div>
     </div>

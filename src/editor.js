@@ -26,9 +26,39 @@ export class SvgEditor {
         window.addEventListener('resize', () => this.resize());
         
         // Initial state
+        this.loadFromLocalStorage();
         this.saveHistory();
         
         console.log('Editor initialized');
+    }
+
+    saveToLocalStorage() {
+        if (this.isRestoring) return;
+        const jsonState = this.project.exportJSON();
+        localStorage.setItem('svg-editor-work', jsonState);
+    }
+
+    loadFromLocalStorage() {
+        const savedWork = localStorage.getItem('svg-editor-work');
+        if (savedWork) {
+            try {
+                this.isRestoring = true;
+                this.project.clear();
+                this.project.importJSON(savedWork);
+                this.isRestoring = false;
+            } catch (err) {
+                console.error('Failed to load saved work:', err);
+                this.isRestoring = false;
+            }
+        }
+    }
+
+    clearCanvas() {
+        this.project.clear();
+        localStorage.removeItem('svg-editor-work');
+        this.history = [];
+        this.setSelected(null);
+        this.saveHistory();
     }
 
     saveHistory() {
@@ -42,6 +72,7 @@ export class SvgEditor {
         }
 
         this.history.push(jsonState);
+        this.saveToLocalStorage(); // Save to storage on every history change
         
         if (this.history.length > this.maxHistory) {
             this.history.shift(); // Keep only last 10
@@ -366,15 +397,15 @@ export class SvgEditor {
         this.saveHistory();
     }
 
-    exportSVG() {
+    exportSVG(fileName = 'canvas-export.svg') {
         const svg = this.getSVGString();
-        this._downloadSVG(svg, 'canvas-export.svg');
+        this._downloadSVG(svg, fileName);
     }
 
-    downloadSelectedSVG() {
+    downloadSelectedSVG(fileName = 'selection-export.svg') {
         if (this.selectedItems.length === 0) return;
         const svg = this.getSelectedSVGString();
-        this._downloadSVG(svg, 'selection-export.svg');
+        this._downloadSVG(svg, fileName);
     }
 
     _downloadSVG(svgContent, fileName) {
