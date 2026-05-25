@@ -80,20 +80,26 @@ export class SvgEditor {
     }
 
     undo() {
-        if (this.history.length <= 1) return; // Need at least current + previous
+        if (this.history.length <= 1) return; 
 
         this.isRestoring = true;
         
-        // Remove current state
+        // Kill any active drag state immediately
+        this.tool.isDragging = false; 
+        this.canvas.style.cursor = 'default';
+
+        // Clear current selection BEFORE restoring
+        this.setSelected(null);
+        
         this.history.pop();
-        // Get previous state
         const prevState = this.history[this.history.length - 1];
         
         this.project.clear();
         this.project.importJSON(prevState);
         
-        // Re-sync selection after undo
-        this.selectedItems = this.project.selectedItems;
+        // Explicitly ensure nothing is selected after undo to avoid stale reference bugs
+        this.project.deselectAll();
+        this.selectedItems = [];
         this.updateUI();
         
         this.isRestoring = false;
@@ -129,6 +135,9 @@ export class SvgEditor {
         let isDragging = false;
 
         this.tool.onMouseDown = (event) => {
+            // Only respond to left mouse button (button 0)
+            if (event.event.button !== 0) return;
+
             const point = event.point;
             
             // Check if we are clicking inside the bounds of any selected item to start a drag
@@ -231,6 +240,8 @@ export class SvgEditor {
                 selectionRect.remove();
                 selectionRect = null;
             }
+            
+            // CRITICAL: Reset ALL state variables
             isDragging = false;
             startPoint = null;
             this.canvas.style.cursor = 'default';

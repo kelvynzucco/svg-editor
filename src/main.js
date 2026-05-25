@@ -151,7 +151,8 @@ editor.canvas.addEventListener('contextmenu', (e) => {
         segments: true,
         stroke: true,
         fill: true,
-        tolerance: 10
+        tolerance: 10,
+        curves: true
     });
 
     if (hitResult && hitResult.item) {
