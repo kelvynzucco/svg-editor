@@ -121,7 +121,7 @@
           <div class="mb-4">
             <label class="block text-[10px] text-gray-400 uppercase mb-1">Fill</label>
             <div class="flex items-center gap-2 mb-2">
-              <input type="color" id="fill-color" class="w-8 h-8 rounded border border-gray-200 cursor-pointer p-0 shrink-0" value="#000000">
+              <div id="fill-picker-swatch" class="w-8 h-8 rounded border border-gray-200 cursor-pointer shadow-sm relative" style="background-color: #000000"></div>
               <input type="text" id="fill-hex-input" class="flex-1 bg-gray-50 border border-gray-100 rounded px-2 py-1.5 text-[10px] font-mono outline-none focus:border-blue-300 transition" placeholder="#000000" value="#000000">
             </div>
             <div class="flex items-center gap-2">
@@ -136,7 +136,7 @@
           <div class="mb-4">
             <label class="block text-[10px] text-gray-400 uppercase mb-1">Stroke</label>
             <div class="flex items-center gap-2 mb-2">
-              <input type="color" id="stroke-color" class="w-8 h-8 rounded border border-gray-200 cursor-pointer p-0 shrink-0" value="#000000">
+              <div id="stroke-picker-swatch" class="w-8 h-8 rounded border border-gray-200 cursor-pointer shadow-sm relative" style="background-color: #000000"></div>
               <input type="text" id="stroke-hex-input" class="flex-1 bg-gray-50 border border-gray-100 rounded px-2 py-1.5 text-[10px] font-mono outline-none focus:border-blue-300 transition" placeholder="#000000" value="#000000">
             </div>
             <div class="flex items-center gap-2 mb-3">
@@ -371,5 +371,8 @@
         <span class="text-xs text-red-300 ml-4 font-mono">Del</span>
       </button>
     </div>
+
+    <!-- Floating Picker Container -->
+    <div id="picker-container" class="fixed hidden z-[9999]"></div>
   </body>
 </html>

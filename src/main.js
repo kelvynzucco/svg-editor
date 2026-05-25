@@ -2,6 +2,7 @@ import './style.css';
 import { SvgEditor } from './editor';
 import { align, flip } from './tools/transform';
 import paper from 'paper';
+import Picker from 'vanilla-picker';
 
 // Initialize Editor
 const editor = new SvgEditor('editor-canvas');
@@ -55,138 +56,172 @@ const alignBtns = {
 };
 
 // Style Elements
-const fColor = document.getElementById('fill-color');
+const fSwatch = document.getElementById('fill-picker-swatch');
 const fHex = document.getElementById('fill-hex-input');
 const fOp = document.getElementById('fill-opacity');
 const fOpVal = document.getElementById('fill-opacity-val');
 
-const sColor = document.getElementById('stroke-color');
+const sSwatch = document.getElementById('stroke-picker-swatch');
 const sHex = document.getElementById('stroke-hex-input');
 const sOp = document.getElementById('stroke-opacity');
 const sOpVal = document.getElementById('stroke-opacity-val');
 
 const sWidth = document.getElementById('stroke-width');
 
+const pContainer = document.getElementById('picker-container');
+
+// Shared Picker Logic
+let activePickerType = null; // 'fill' or 'stroke'
+
+const sharedPicker = new Picker({
+    parent: pContainer,
+    popup: false, // We handle visibility manually
+    alpha: false,
+    editor: true,
+    editorFormat: 'hex',
+    onDone: (color) => {
+        const type = activePickerType === 'fill' ? 'fillColor' : 'strokeColor';
+        editor.applyStyle(type, color.hex.substring(0, 7), true);
+        pContainer.classList.add('hidden');
+        activePickerType = null;
+    }
+});
+
+sharedPicker.onChange = (color) => {
+    if (!activePickerType) return;
+    const hex = color.hex.substring(0, 7).toUpperCase();
+    if (activePickerType === 'fill') {
+        fSwatch.style.backgroundColor = hex;
+        fHex.value = hex;
+        editor.applyStyle('fillColor', hex, false);
+    } else {
+        sSwatch.style.backgroundColor = hex;
+        sHex.value = hex;
+        editor.applyStyle('strokeColor', hex, false);
+    }
+};
+
+const openPicker = (e, type) => {
+    e.stopPropagation();
+    activePickerType = type;
+    
+    // Get button position
+    const rect = e.target.getBoundingClientRect();
+    pContainer.style.top = `${rect.top}px`;
+    pContainer.style.left = `${rect.right + 10}px`;
+    
+    // Set current color
+    const style = editor.getSelectionStyle();
+    const currentCol = type === 'fill' ? style?.fillColor : style?.strokeColor;
+    sharedPicker.setColor(currentCol || '#000000', true);
+    
+    pContainer.classList.remove('hidden');
+};
+
+fSwatch.addEventListener('click', (e) => openPicker(e, 'fill'));
+sSwatch.addEventListener('click', (e) => openPicker(e, 'stroke'));
+
+// Close picker when clicking outside
+window.addEventListener('mousedown', (e) => {
+    if (pContainer && !pContainer.contains(e.target) && !fSwatch.contains(e.target) && !sSwatch.contains(e.target)) {
+        pContainer.classList.add('hidden');
+        activePickerType = null;
+    }
+});
+
 // Handle Selection UI Updates
 window.addEventListener('selectionChanged', (e) => {
     const hasSelection = e.detail.items && e.detail.items.length > 0;
     
-    // Toggle alignment buttons disabled state
     Object.values(alignBtns).forEach(btn => {
         if (btn) btn.disabled = !hasSelection;
     });
     
-    // Update Style UI
     if (hasSelection) {
         const style = editor.getSelectionStyle();
         if (style) {
             const hexF = style.fillColor.toUpperCase();
-            if (fColor) fColor.value = style.fillColor;
-            if (fHex) fHex.value = hexF;
-            if (fOp) fOp.value = style.fillOpacity;
-            if (fOpVal) fOpVal.innerText = `${Math.round(style.fillOpacity)}%`;
+            fSwatch.style.backgroundColor = hexF;
+            fHex.value = hexF;
+            
+            fOp.value = style.fillOpacity;
+            fOpVal.innerText = `${Math.round(style.fillOpacity)}%`;
             
             const hexS = style.strokeColor.toUpperCase();
-            if (sColor) sColor.value = style.strokeColor;
-            if (sHex) sHex.value = hexS;
-            if (sOp) sOp.value = style.strokeOpacity;
-            if (sOpVal) sOpVal.innerText = `${Math.round(style.strokeOpacity)}%`;
+            sSwatch.style.backgroundColor = hexS;
+            sHex.value = hexS;
             
-            if (sWidth) sWidth.value = style.strokeWidth;
+            sOp.value = style.strokeOpacity;
+            sOpVal.innerText = `${Math.round(style.strokeOpacity)}%`;
+            
+            sWidth.value = style.strokeWidth;
+
+            // Update shared picker if it's open
+            if (!pContainer.classList.contains('hidden') && activePickerType) {
+                const currentCol = activePickerType === 'fill' ? hexF : hexS;
+                sharedPicker.setColor(currentCol, true);
+            }
         }
     }
 });
 
-// Fill Handlers
-fColor.addEventListener('input', (e) => {
-    fHex.value = e.target.value.toUpperCase();
-    editor.applyStyle('fillColor', e.target.value, false);
-});
-fColor.addEventListener('change', (e) => {
-    // Only save history on change (final confirmation)
-    editor.applyStyle('fillColor', e.target.value, true);
-});
-
+// Manual HEX Handlers
 fHex.addEventListener('input', (e) => {
     let val = e.target.value;
     if (!val.startsWith('#')) val = '#' + val;
     if (/^#[0-9A-F]{6}$/i.test(val)) {
-        fColor.value = val;
+        fSwatch.style.backgroundColor = val;
         editor.applyStyle('fillColor', val, false);
     }
 });
 fHex.addEventListener('change', (e) => {
     let val = e.target.value;
     if (!val.startsWith('#')) val = '#' + val;
-    if (/^#[0-9A-F]{6}$/i.test(val)) {
-        editor.applyStyle('fillColor', val, true);
-    }
-});
-
-fOp.addEventListener('input', (e) => {
-    const val = e.target.value / 100;
-    fOpVal.innerText = `${e.target.value}%`;
-    editor.applyStyle('fillOpacity', val, false);
-});
-fOp.addEventListener('change', (e) => {
-    editor.applyStyle('fillOpacity', e.target.value / 100, true);
-});
-
-// Stroke Handlers
-sColor.addEventListener('input', (e) => {
-    sHex.value = e.target.value.toUpperCase();
-    editor.applyStyle('strokeColor', e.target.value, false);
-});
-sColor.addEventListener('change', (e) => {
-    editor.applyStyle('strokeColor', e.target.value, true);
+    if (/^#[0-9A-F]{6}$/i.test(val)) editor.applyStyle('fillColor', val, true);
 });
 
 sHex.addEventListener('input', (e) => {
     let val = e.target.value;
     if (!val.startsWith('#')) val = '#' + val;
     if (/^#[0-9A-F]{6}$/i.test(val)) {
-        sColor.value = val;
+        sSwatch.style.backgroundColor = val;
         editor.applyStyle('strokeColor', val, false);
     }
 });
 sHex.addEventListener('change', (e) => {
     let val = e.target.value;
     if (!val.startsWith('#')) val = '#' + val;
-    if (/^#[0-9A-F]{6}$/i.test(val)) {
-        editor.applyStyle('strokeColor', val, true);
-    }
+    if (/^#[0-9A-F]{6}$/i.test(val)) editor.applyStyle('strokeColor', val, true);
 });
+
+// Opacity Handlers
+fOp.addEventListener('input', (e) => {
+    const val = e.target.value / 100;
+    fOpVal.innerText = `${e.target.value}%`;
+    editor.applyStyle('fillOpacity', val, false);
+});
+fOp.addEventListener('change', (e) => editor.applyStyle('fillOpacity', e.target.value / 100, true));
 
 sOp.addEventListener('input', (e) => {
     const val = e.target.value / 100;
     sOpVal.innerText = `${e.target.value}%`;
     editor.applyStyle('strokeOpacity', val, false);
 });
-sOp.addEventListener('change', (e) => {
-    editor.applyStyle('strokeOpacity', e.target.value / 100, true);
-});
+sOp.addEventListener('change', (e) => editor.applyStyle('strokeOpacity', e.target.value / 100, true));
 
-sWidth.addEventListener('input', (e) => {
-    editor.applyStyle('strokeWidth', e.target.value, false);
-});
-sWidth.addEventListener('change', (e) => {
-    editor.applyStyle('strokeWidth', e.target.value, true);
-});
+sWidth.addEventListener('input', (e) => editor.applyStyle('strokeWidth', e.target.value, false));
+sWidth.addEventListener('change', (e) => editor.applyStyle('strokeWidth', e.target.value, true));
 
 // Keyboard Shortcuts
 window.addEventListener('keydown', (e) => {
-    // Identify text-based inputs where we want the browser's default behavior
     const isTextInput = (e.target.tagName === 'INPUT' && (e.target.type === 'text' || e.target.type === 'number')) || 
                         e.target.tagName === 'TEXTAREA';
     
     if (isTextInput) {
-        // For text fields, allow Group (Ctrl+G) and Ungroup (Ctrl+Backspace) to pass through
-        // but let the browser handle Ctrl+Z, Ctrl+C, etc.
         const isAppShortcut = (e.ctrlKey || e.metaKey) && ['g', 'backspace'].includes(e.key.toLowerCase());
         if (!isAppShortcut) return;
     }
 
-    // Deletion Logic (Delete/Backspace) - Only if NO modifier keys are held
     if ((e.key === 'Delete' || e.key === 'Backspace') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
         editor.deleteSelectedItem();
     }
@@ -196,7 +231,6 @@ window.addEventListener('keydown', (e) => {
         editor.undo();
     }
 
-    // Ctrl+Y (Redo)
     if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
         e.preventDefault();
         editor.redo();

@@ -20,7 +20,7 @@ export class SvgEditor {
         // UI Layer for Transform Handles
         this.uiLayer = new paper.Layer();
         this.uiLayer.name = 'ui-layer';
-        this.uiLayer.data.isTool = true; // Mark layer as tool
+        this.uiLayer.data.isTool = true;
 
         // Create/Ensure a drawing layer
         if (this.project.layers.length < 2) {
@@ -44,13 +44,21 @@ export class SvgEditor {
     }
 
     _getCleanJSON() {
-        // Ensure UI layer is truly removed from the project before export
+        // 1. Temporarily remove UI layer
         const ui = this.uiLayer;
         if (ui) ui.remove();
         
+        // 2. Temporarily deselect all to get a "pure content" snapshot
+        // This prevents selection changes from creating history steps
+        const selected = this.selectedItems.map(item => item);
+        this.project.deselectAll();
+        
         const json = this.project.exportJSON();
         
-        // Restore UI layer at the top
+        // 3. Restore selection state
+        selected.forEach(item => item.selected = true);
+        
+        // 4. Restore UI layer
         if (ui) {
             this.project.addLayer(ui);
             this.drawLayer.activate();
@@ -64,14 +72,10 @@ export class SvgEditor {
     }
 
     _sanitizeLayers() {
-        // 1. Destroy any ghost UI layers or nameless layers
         this.project.layers.filter(l => l.name === 'ui-layer' || (l.data && l.data.isTool)).forEach(l => l.remove());
-
-        // 2. Ensure draw layer exists
         let drawLayer = this.project.layers.find(l => l.name === 'draw-layer');
         if (!drawLayer) {
             drawLayer = new paper.Layer({ name: 'draw-layer' });
-            // Move everything from nameless layers
             this.project.layers.forEach(layer => {
                 if (layer !== drawLayer) {
                     drawLayer.addChildren(Array.from(layer.children));
@@ -79,11 +83,8 @@ export class SvgEditor {
                 }
             });
         }
-
-        // 3. Create fresh UI layer ON TOP
         this.uiLayer = new paper.Layer({ name: 'ui-layer' });
         this.uiLayer.data.isTool = true;
-        
         drawLayer.activate();
         return drawLayer;
     }
@@ -108,6 +109,7 @@ export class SvgEditor {
         this.drawLayer.clear();
         localStorage.removeItem('svg-editor-work');
         this.history = [];
+        this.redoStack = [];
         this.setSelected(null);
         this.saveHistory();
     }
@@ -116,15 +118,21 @@ export class SvgEditor {
         if (this.isRestoring) return;
         
         const jsonState = this._getCleanJSON();
-        if (this.history.length > 0 && this.history[this.history.length - 1] === jsonState) return;
+        
+        // ALWAYS update localStorage so a page refresh captures the latest state
+        localStorage.setItem('svg-editor-work', jsonState);
+
+        // For the history stack, only save if CONTENT has changed
+        if (this.history.length > 0 && this.history[this.history.length - 1] === jsonState) {
+            return;
+        }
         
         this.history.push(jsonState);
+        this.redoStack = []; // Clear redo stack on new unique action
         
-        // Clear redo stack when a new action is performed
-        this.redoStack = [];
-        
-        this.saveToLocalStorage();
-        if (this.history.length > this.maxHistory) this.history.shift();
+        if (this.history.length > this.maxHistory) {
+            this.history.shift();
+        }
     }
 
     undo() {
@@ -136,7 +144,6 @@ export class SvgEditor {
 
         const selectedIds = this.selectedItems.map(item => item.id);
         
-        // Move current state to redo stack
         const currentState = this.history.pop();
         this.redoStack.push(currentState);
         
@@ -159,6 +166,7 @@ export class SvgEditor {
 
         this.updateTransformUI();
         this.updateUI();
+        localStorage.setItem('svg-editor-work', prevState);
         this.isRestoring = false;
     }
 
@@ -166,10 +174,7 @@ export class SvgEditor {
         if (this.redoStack.length === 0) return;
 
         this.isRestoring = true;
-        
-        // Get state from redo stack
         const nextState = this.redoStack.pop();
-        // Push back to history
         this.history.push(nextState);
 
         const selectedIds = this.selectedItems.map(item => item.id);
@@ -191,7 +196,7 @@ export class SvgEditor {
 
         this.updateTransformUI();
         this.updateUI();
-        this.saveToLocalStorage();
+        localStorage.setItem('svg-editor-work', nextState);
         this.isRestoring = false;
     }
 
@@ -517,7 +522,14 @@ export class SvgEditor {
                 item.strokeColor.alpha = parseFloat(value);
             }
         });
-        if (shouldSaveHistory) this.saveHistory();
+        
+        if (shouldSaveHistory) {
+            this.saveHistory();
+        } else {
+            // FORCE localStorage update on every minor change (input dragging)
+            localStorage.setItem('svg-editor-work', this._getCleanJSON());
+        }
+        
         this.view.update();
         this.updateTransformUI(); 
     }
