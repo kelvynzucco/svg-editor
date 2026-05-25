@@ -7,32 +7,23 @@ export function align(item, position, view) {
     const viewBounds = view.bounds;
 
     switch (position) {
-        case 'tl':
-            item.position = new paper.Point(
-                viewBounds.left + bounds.width / 2,
-                viewBounds.top + bounds.height / 2
-            );
+        case 'left':
+            item.position.x = viewBounds.left + bounds.width / 2;
             break;
-        case 'tr':
-            item.position = new paper.Point(
-                viewBounds.right - bounds.width / 2,
-                viewBounds.top + bounds.height / 2
-            );
+        case 'h-center':
+            item.position.x = view.center.x;
             break;
-        case 'bl':
-            item.position = new paper.Point(
-                viewBounds.left + bounds.width / 2,
-                viewBounds.bottom - bounds.height / 2
-            );
+        case 'right':
+            item.position.x = viewBounds.right - bounds.width / 2;
             break;
-        case 'br':
-            item.position = new paper.Point(
-                viewBounds.right - bounds.width / 2,
-                viewBounds.bottom - bounds.height / 2
-            );
+        case 'top':
+            item.position.y = viewBounds.top + bounds.height / 2;
             break;
-        case 'center':
-            item.position = view.center;
+        case 'v-center':
+            item.position.y = view.center.y;
+            break;
+        case 'bottom':
+            item.position.y = viewBounds.bottom - bounds.height / 2;
             break;
     }
 }

@@ -23,11 +23,12 @@ const ctxCopyBtn = document.getElementById('ctx-copy');
 const ctxDownloadBtn = document.getElementById('ctx-download');
 
 const alignBtns = {
-    tl: document.getElementById('align-tl'),
-    tr: document.getElementById('align-tr'),
-    bl: document.getElementById('align-bl'),
-    br: document.getElementById('align-br'),
-    center: document.getElementById('align-center')
+    left: document.getElementById('align-left'),
+    'h-center': document.getElementById('align-h-center'),
+    right: document.getElementById('align-right'),
+    top: document.getElementById('align-top'),
+    'v-center': document.getElementById('align-v-center'),
+    bottom: document.getElementById('align-bottom')
 };
 
 const flipBtns = {
