@@ -509,6 +509,55 @@ export class SvgEditor {
         this.saveHistory();
     }
 
+    applyStyle(property, value, shouldSaveHistory = true) {
+        if (this.selectedItems.length === 0) return;
+        
+        this.selectedItems.forEach(item => {
+            if (property === 'fillColor') {
+                item.fillColor = value;
+            } else if (property === 'strokeColor') {
+                item.strokeColor = value;
+                if (!item.strokeWidth) item.strokeWidth = 1; 
+            } else if (property === 'strokeWidth') {
+                const width = parseFloat(value);
+                item.strokeWidth = width;
+                if (width > 0 && !item.strokeColor) {
+                    item.strokeColor = '#000000';
+                }
+            } else if (property === 'fillOpacity') {
+                if (!item.fillColor) item.fillColor = '#000000'; 
+                item.fillColor.alpha = parseFloat(value);
+            } else if (property === 'strokeOpacity') {
+                if (!item.strokeColor) item.strokeColor = '#000000'; 
+                if (!item.strokeWidth) item.strokeWidth = 1;
+                item.strokeColor.alpha = parseFloat(value);
+            }
+        });
+        
+        if (shouldSaveHistory) {
+            this.saveHistory();
+        }
+        
+        this.view.update();
+        this.updateTransformUI(); 
+    }
+
+    getSelectionStyle() {
+        if (this.selectedItems.length === 0) return null;
+        
+        // Return style of the first selected item as reference
+        const item = this.selectedItems[0];
+        const hasStroke = !!item.strokeColor;
+        
+        return {
+            fillColor: item.fillColor ? item.fillColor.toCSS(true) : '#000000',
+            fillOpacity: item.fillColor ? item.fillColor.alpha * 100 : 100,
+            strokeColor: item.strokeColor ? item.strokeColor.toCSS(true) : '#000000',
+            strokeOpacity: item.strokeColor ? item.strokeColor.alpha * 100 : 100,
+            strokeWidth: hasStroke ? item.strokeWidth : 0
+        };
+    }
+
     exportSVG(fileName = 'canvas-export.svg') {
         this._downloadSVG(this.getSVGString(), fileName);
     }
@@ -622,6 +671,22 @@ export class SvgEditor {
                 expandShapes: true, insert: true,
                 onLoad: (item) => {
                     if (!item) return reject(new Error('Import failed'));
+                    
+                    // Flatten opacity: move global opacity into fill/stroke alpha
+                    // This makes it compatible with our separate Fill/Stroke opacity sliders
+                    const flattenOpacity = (el) => {
+                        if (el.opacity !== 1) {
+                            const op = el.opacity;
+                            if (el.fillColor) el.fillColor.alpha *= op;
+                            if (el.strokeColor) el.strokeColor.alpha *= op;
+                            el.opacity = 1; // Reset global opacity
+                        }
+                        if (el.children) {
+                            el.children.forEach(flattenOpacity);
+                        }
+                    };
+                    flattenOpacity(item);
+
                     this.drawLayer.addChild(item);
                     item.position = this.view.center;
                     this.setSelected(item);

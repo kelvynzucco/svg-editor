@@ -48,6 +48,64 @@ window.addEventListener('selectionChanged', (e) => {
     
     Object.values(alignBtns).forEach(btn => btn.disabled = !hasSelection);
     Object.values(flipBtns).forEach(btn => btn.disabled = !hasSelection);
+
+    // Update Style UI
+    if (hasSelection) {
+        const style = editor.getSelectionStyle();
+        if (style) {
+            document.getElementById('fill-color').value = style.fillColor;
+            document.getElementById('fill-opacity').value = style.fillOpacity;
+            document.getElementById('fill-opacity-val').innerText = `${Math.round(style.fillOpacity)}%`;
+            
+            document.getElementById('stroke-color').value = style.strokeColor;
+            document.getElementById('stroke-opacity').value = style.strokeOpacity;
+            document.getElementById('stroke-opacity-val').innerText = `${Math.round(style.strokeOpacity)}%`;
+            
+            document.getElementById('stroke-width').value = style.strokeWidth;
+        }
+    }
+});
+
+// Style Handlers
+document.getElementById('fill-color').addEventListener('input', (e) => {
+    editor.applyStyle('fillColor', e.target.value, false); // No history on input
+});
+document.getElementById('fill-color').addEventListener('change', (e) => {
+    editor.applyStyle('fillColor', e.target.value, true); // Save history on change
+});
+
+document.getElementById('fill-opacity').addEventListener('input', (e) => {
+    const val = e.target.value / 100;
+    document.getElementById('fill-opacity-val').innerText = `${e.target.value}%`;
+    editor.applyStyle('fillOpacity', val, false); // No history on input
+});
+document.getElementById('fill-opacity').addEventListener('change', (e) => {
+    const val = e.target.value / 100;
+    editor.applyStyle('fillOpacity', val, true); // Save history on change
+});
+
+document.getElementById('stroke-color').addEventListener('input', (e) => {
+    editor.applyStyle('strokeColor', e.target.value, false); // No history on input
+});
+document.getElementById('stroke-color').addEventListener('change', (e) => {
+    editor.applyStyle('strokeColor', e.target.value, true); // Save history on change
+});
+
+document.getElementById('stroke-opacity').addEventListener('input', (e) => {
+    const val = e.target.value / 100;
+    document.getElementById('stroke-opacity-val').innerText = `${e.target.value}%`;
+    editor.applyStyle('strokeOpacity', val, false); // No history on input
+});
+document.getElementById('stroke-opacity').addEventListener('change', (e) => {
+    const val = e.target.value / 100;
+    editor.applyStyle('strokeOpacity', val, true); // Save history on change
+});
+
+document.getElementById('stroke-width').addEventListener('input', (e) => {
+    editor.applyStyle('strokeWidth', e.target.value, false); // No history on input
+});
+document.getElementById('stroke-width').addEventListener('change', (e) => {
+    editor.applyStyle('strokeWidth', e.target.value, true); // Save history on change
 });
 
 // Keyboard Shortcuts
