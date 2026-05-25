@@ -53,8 +53,8 @@ window.addEventListener('keydown', (e) => {
     // Check if user is typing in an input or textarea
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
-    // Delete Shortcut
-    if (e.key === 'Delete' || e.key === 'Backspace') {
+    // Deletion Logic (Delete/Backspace) - Only if NO modifier keys are held
+    if ((e.key === 'Delete' || e.key === 'Backspace') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
         editor.deleteSelectedItem();
     }
 
@@ -62,6 +62,18 @@ window.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault();
         editor.undo();
+    }
+
+    // Ctrl+G (Group)
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
+        e.preventDefault();
+        editor.groupSelectedItems();
+    }
+
+    // Ctrl+Backspace (Ungroup)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Backspace') {
+        e.preventDefault();
+        editor.ungroupSelectedItems();
     }
 
     // Ctrl+C (Copy)
