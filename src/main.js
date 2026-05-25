@@ -170,6 +170,14 @@ editor.canvas.addEventListener('contextmenu', (e) => {
     }
 
     if (editor.selectedItem) {
+        // Only show Ungroup if there's at least one group in the selection
+        const hasGroup = editor.selectedItems.some(item => item instanceof paper.Group);
+        if (hasGroup) {
+            ctxUngroupBtn.classList.remove('hidden');
+        } else {
+            ctxUngroupBtn.classList.add('hidden');
+        }
+
         contextMenu.style.left = `${e.clientX}px`;
         contextMenu.style.top = `${e.clientY}px`;
         contextMenu.classList.remove('hidden');
