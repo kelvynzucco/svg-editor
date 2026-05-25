@@ -22,6 +22,7 @@ const contextMenu = document.getElementById('context-menu');
 const ctxDeleteBtn = document.getElementById('ctx-delete');
 const ctxCopyBtn = document.getElementById('ctx-copy');
 const ctxDownloadBtn = document.getElementById('ctx-download');
+const ctxDuplicateBtn = document.getElementById('ctx-duplicate');
 const ctxGroupBtn = document.getElementById('ctx-group');
 const ctxUngroupBtn = document.getElementById('ctx-ungroup');
 
@@ -202,6 +203,11 @@ ctxCopyBtn.addEventListener('click', () => {
 
 ctxDownloadBtn.addEventListener('click', () => {
     editor.downloadSelectedSVG();
+    contextMenu.classList.add('hidden');
+});
+
+ctxDuplicateBtn.addEventListener('click', () => {
+    editor.duplicateSelectedItems();
     contextMenu.classList.add('hidden');
 });
 

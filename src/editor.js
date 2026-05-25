@@ -133,12 +133,14 @@ export class SvgEditor {
         let selectionRect = null;
         let startPoint = null;
         let isDragging = false;
+        let hasDuplicatedOnDrag = false;
 
         this.tool.onMouseDown = (event) => {
             // Only respond to left mouse button (button 0)
             if (event.event.button !== 0) return;
 
             const point = event.point;
+            hasDuplicatedOnDrag = false;
             
             // Check if we are clicking inside the bounds of any selected item to start a drag
             const hitSelected = this.selectedItems.some(item => item.bounds.contains(point));
@@ -204,6 +206,13 @@ export class SvgEditor {
 
         this.tool.onMouseDrag = (event) => {
             if (isDragging) {
+                // Alt+Drag duplication logic
+                if (event.modifiers.alt && !hasDuplicatedOnDrag && this.selectedItems.length > 0) {
+                    const clones = this.selectedItems.map(item => item.clone());
+                    this.setSelected(clones);
+                    hasDuplicatedOnDrag = true;
+                }
+
                 for (const item of this.selectedItems) {
                     item.position = item.position.add(event.delta);
                 }
@@ -244,8 +253,23 @@ export class SvgEditor {
             // CRITICAL: Reset ALL state variables
             isDragging = false;
             startPoint = null;
+            hasDuplicatedOnDrag = false;
             this.canvas.style.cursor = 'default';
         };
+    }
+
+    duplicateSelectedItems() {
+        if (this.selectedItems.length === 0) return;
+
+        const clones = this.selectedItems.map(item => {
+            const clone = item.clone();
+            // Offset the duplicate slightly for visibility
+            clone.position = clone.position.add(new paper.Point(20, 20));
+            return clone;
+        });
+
+        this.setSelected(clones);
+        this.saveHistory();
     }
 
     importSVG(data) {
