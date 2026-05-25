@@ -102,7 +102,10 @@ fColor.addEventListener('input', (e) => {
     fHex.value = e.target.value.toUpperCase();
     editor.applyStyle('fillColor', e.target.value, false);
 });
-fColor.addEventListener('change', (e) => editor.applyStyle('fillColor', e.target.value, true));
+fColor.addEventListener('change', (e) => {
+    // Only save history on change (final confirmation)
+    editor.applyStyle('fillColor', e.target.value, true);
+});
 
 fHex.addEventListener('input', (e) => {
     let val = e.target.value;
@@ -115,7 +118,9 @@ fHex.addEventListener('input', (e) => {
 fHex.addEventListener('change', (e) => {
     let val = e.target.value;
     if (!val.startsWith('#')) val = '#' + val;
-    if (/^#[0-9A-F]{6}$/i.test(val)) editor.applyStyle('fillColor', val, true);
+    if (/^#[0-9A-F]{6}$/i.test(val)) {
+        editor.applyStyle('fillColor', val, true);
+    }
 });
 
 fOp.addEventListener('input', (e) => {
@@ -123,14 +128,18 @@ fOp.addEventListener('input', (e) => {
     fOpVal.innerText = `${e.target.value}%`;
     editor.applyStyle('fillOpacity', val, false);
 });
-fOp.addEventListener('change', (e) => editor.applyStyle('fillOpacity', e.target.value / 100, true));
+fOp.addEventListener('change', (e) => {
+    editor.applyStyle('fillOpacity', e.target.value / 100, true);
+});
 
 // Stroke Handlers
 sColor.addEventListener('input', (e) => {
     sHex.value = e.target.value.toUpperCase();
     editor.applyStyle('strokeColor', e.target.value, false);
 });
-sColor.addEventListener('change', (e) => editor.applyStyle('strokeColor', e.target.value, true));
+sColor.addEventListener('change', (e) => {
+    editor.applyStyle('strokeColor', e.target.value, true);
+});
 
 sHex.addEventListener('input', (e) => {
     let val = e.target.value;
@@ -143,7 +152,9 @@ sHex.addEventListener('input', (e) => {
 sHex.addEventListener('change', (e) => {
     let val = e.target.value;
     if (!val.startsWith('#')) val = '#' + val;
-    if (/^#[0-9A-F]{6}$/i.test(val)) editor.applyStyle('strokeColor', val, true);
+    if (/^#[0-9A-F]{6}$/i.test(val)) {
+        editor.applyStyle('strokeColor', val, true);
+    }
 });
 
 sOp.addEventListener('input', (e) => {
@@ -151,15 +162,31 @@ sOp.addEventListener('input', (e) => {
     sOpVal.innerText = `${e.target.value}%`;
     editor.applyStyle('strokeOpacity', val, false);
 });
-sOp.addEventListener('change', (e) => editor.applyStyle('strokeOpacity', e.target.value / 100, true));
+sOp.addEventListener('change', (e) => {
+    editor.applyStyle('strokeOpacity', e.target.value / 100, true);
+});
 
-sWidth.addEventListener('input', (e) => editor.applyStyle('strokeWidth', e.target.value, false));
-sWidth.addEventListener('change', (e) => editor.applyStyle('strokeWidth', e.target.value, true));
+sWidth.addEventListener('input', (e) => {
+    editor.applyStyle('strokeWidth', e.target.value, false);
+});
+sWidth.addEventListener('change', (e) => {
+    editor.applyStyle('strokeWidth', e.target.value, true);
+});
 
 // Keyboard Shortcuts
 window.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    // Identify text-based inputs where we want the browser's default behavior
+    const isTextInput = (e.target.tagName === 'INPUT' && (e.target.type === 'text' || e.target.type === 'number')) || 
+                        e.target.tagName === 'TEXTAREA';
+    
+    if (isTextInput) {
+        // For text fields, allow Group (Ctrl+G) and Ungroup (Ctrl+Backspace) to pass through
+        // but let the browser handle Ctrl+Z, Ctrl+C, etc.
+        const isAppShortcut = (e.ctrlKey || e.metaKey) && ['g', 'backspace'].includes(e.key.toLowerCase());
+        if (!isAppShortcut) return;
+    }
 
+    // Deletion Logic (Delete/Backspace) - Only if NO modifier keys are held
     if ((e.key === 'Delete' || e.key === 'Backspace') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
         editor.deleteSelectedItem();
     }
@@ -167,6 +194,12 @@ window.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault();
         editor.undo();
+    }
+
+    // Ctrl+Y (Redo)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault();
+        editor.redo();
     }
 
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {

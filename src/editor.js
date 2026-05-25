@@ -13,6 +13,7 @@ export class SvgEditor {
         this.selectedItems = [];
         
         this.history = [];
+        this.redoStack = [];
         this.maxHistory = 10;
         this.isRestoring = false;
 
@@ -43,14 +44,16 @@ export class SvgEditor {
     }
 
     _getCleanJSON() {
-        let json;
-        if (this.uiLayer) {
-            this.uiLayer.remove();
-            json = this.project.exportJSON();
-            this.project.addLayer(this.uiLayer);
+        // Ensure UI layer is truly removed from the project before export
+        const ui = this.uiLayer;
+        if (ui) ui.remove();
+        
+        const json = this.project.exportJSON();
+        
+        // Restore UI layer at the top
+        if (ui) {
+            this.project.addLayer(ui);
             this.drawLayer.activate();
-        } else {
-            json = this.project.exportJSON();
         }
         return json;
     }
@@ -61,15 +64,14 @@ export class SvgEditor {
     }
 
     _sanitizeLayers() {
-        // 1. Destroy any ghost UI layers from old saves
-        const ghostLayers = this.project.layers.filter(l => l.name === 'ui-layer' || (l.data && l.data.isTool));
-        ghostLayers.forEach(l => l.remove());
+        // 1. Destroy any ghost UI layers or nameless layers
+        this.project.layers.filter(l => l.name === 'ui-layer' || (l.data && l.data.isTool)).forEach(l => l.remove());
 
-        // 2. Identify or create draw layer
+        // 2. Ensure draw layer exists
         let drawLayer = this.project.layers.find(l => l.name === 'draw-layer');
         if (!drawLayer) {
             drawLayer = new paper.Layer({ name: 'draw-layer' });
-            // Move everything from other old layers to drawLayer
+            // Move everything from nameless layers
             this.project.layers.forEach(layer => {
                 if (layer !== drawLayer) {
                     drawLayer.addChildren(Array.from(layer.children));
@@ -78,11 +80,12 @@ export class SvgEditor {
             });
         }
 
-        // 3. Create fresh UI layer
+        // 3. Create fresh UI layer ON TOP
         this.uiLayer = new paper.Layer({ name: 'ui-layer' });
         this.uiLayer.data.isTool = true;
         
         drawLayer.activate();
+        return drawLayer;
     }
 
     loadFromLocalStorage() {
@@ -116,26 +119,79 @@ export class SvgEditor {
         if (this.history.length > 0 && this.history[this.history.length - 1] === jsonState) return;
         
         this.history.push(jsonState);
+        
+        // Clear redo stack when a new action is performed
+        this.redoStack = [];
+        
         this.saveToLocalStorage();
         if (this.history.length > this.maxHistory) this.history.shift();
     }
 
     undo() {
         if (this.history.length <= 1) return; 
-        this.isRestoring = true;
         
+        this.isRestoring = true;
         if (this.tool) this.tool.isDragging = false;
         this.canvas.style.cursor = 'default';
+
+        const selectedIds = this.selectedItems.map(item => item.id);
         
-        this.history.pop();
+        // Move current state to redo stack
+        const currentState = this.history.pop();
+        this.redoStack.push(currentState);
+        
         const prevState = this.history[this.history.length - 1];
         
         this.project.clear();
         this.project.importJSON(prevState);
-        this._sanitizeLayers();
+        
+        const drawLayer = this._sanitizeLayers();
+        
+        this.selectedItems = [];
+        if (selectedIds.length > 0) {
+            drawLayer.children.forEach(item => {
+                if (selectedIds.includes(item.id)) {
+                    item.selected = true;
+                    this.selectedItems.push(item);
+                }
+            });
+        }
 
-        this.setSelected(null); // Clear selection after undo to be safe
+        this.updateTransformUI();
         this.updateUI();
+        this.isRestoring = false;
+    }
+
+    redo() {
+        if (this.redoStack.length === 0) return;
+
+        this.isRestoring = true;
+        
+        // Get state from redo stack
+        const nextState = this.redoStack.pop();
+        // Push back to history
+        this.history.push(nextState);
+
+        const selectedIds = this.selectedItems.map(item => item.id);
+
+        this.project.clear();
+        this.project.importJSON(nextState);
+        
+        const drawLayer = this._sanitizeLayers();
+
+        this.selectedItems = [];
+        if (selectedIds.length > 0) {
+            drawLayer.children.forEach(item => {
+                if (selectedIds.includes(item.id)) {
+                    item.selected = true;
+                    this.selectedItems.push(item);
+                }
+            });
+        }
+
+        this.updateTransformUI();
+        this.updateUI();
+        this.saveToLocalStorage();
         this.isRestoring = false;
     }
 
@@ -174,50 +230,30 @@ export class SvgEditor {
             const point = event.point;
             hasDuplicatedOnDrag = false;
 
-            // 1. Hit test UI Layer handles first (Rotation/Scale)
             const uiHit = this.uiLayer.hitTest(point, { tolerance: 10, fill: true, stroke: true });
             if (uiHit && uiHit.item && uiHit.item.data) {
                 handleType = uiHit.item.data.type;
                 if (handleType === 'rotate') {
                     isRotating = true;
                     const center = this.getSelectionBounds().center;
-                    transformRef = { 
-                        center: center, 
-                        startAngle: point.subtract(center).angle,
-                        totalApplied: 0
-                    };
+                    transformRef = { center: center, startAngle: point.subtract(center).angle, totalApplied: 0 };
                     return;
                 } else if (handleType.startsWith('scale-')) {
                     isScaling = true;
                     const bounds = this.getSelectionBounds();
-                    transformRef = { 
-                        bounds: bounds.clone(), 
-                        startPoint: point, 
-                        pivot: bounds[this.getOppositeCorner(handleType)],
-                        totalScaleX: 1,
-                        totalScaleY: 1
-                    };
+                    transformRef = { bounds: bounds.clone(), startPoint: point, pivot: bounds[this.getOppositeCorner(handleType)], totalScaleX: 1, totalScaleY: 1 };
                     return;
                 }
             }
 
-            // 2. Hit test drawing layer (find if we clicked ON something)
-            const hitResult = this.drawLayer.hitTest(point, { 
-                segments: true, stroke: true, fill: true, tolerance: 10, curves: true 
-            });
-
+            const hitResult = this.drawLayer.hitTest(point, { segments: true, stroke: true, fill: true, tolerance: 10, curves: true });
             if (hitResult && hitResult.item) {
                 let item = hitResult.item;
-                // Traverse up to find the top-most parent in the draw layer (for groups)
                 while (item.parent && item.parent !== this.drawLayer) item = item.parent;
-                
                 if (event.modifiers.shift) {
                     item.selected ? this.removeFromSelection(item) : this.addToSelection(item);
                 } else {
-                    // If clicking an item that's already in a multi-selection, just drag
-                    if (!item.selected) {
-                        this.setSelected(item);
-                    }
+                    if (!item.selected) this.setSelected(item);
                     isDragging = true;
                     this.canvas.style.cursor = 'move';
                     this.uiLayer.visible = false;
@@ -225,7 +261,6 @@ export class SvgEditor {
                 return;
             }
 
-            // 3. Fallback: Check if clicking inside the BOUNDS of existing selection (for dragging empty areas of a group)
             const hitSelectedBounds = this.selectedItems.some(item => item.strokeBounds.contains(point));
             if (hitSelectedBounds && !event.modifiers.shift) {
                 isDragging = true;
@@ -234,7 +269,6 @@ export class SvgEditor {
                 return;
             }
 
-            // 4. Empty space click
             if (!event.modifiers.shift) this.setSelected(null);
             startPoint = point;
         };
@@ -244,63 +278,40 @@ export class SvgEditor {
                 const center = transformRef.center;
                 const currentAngle = event.point.subtract(center).angle;
                 let rawDelta = currentAngle - transformRef.startAngle;
-                
                 let desiredTotal = rawDelta;
-                
-                // --- Snapping Logic (Shift Key) ---
                 if (event.modifiers.shift) {
                     const snapAngle = 15;
                     desiredTotal = Math.round(rawDelta / snapAngle) * snapAngle;
                 }
-
                 const incrementalDelta = desiredTotal - transformRef.totalApplied;
-                
                 if (incrementalDelta !== 0) {
                     this.selectedItems.forEach(item => item.rotate(incrementalDelta, center));
                     transformRef.totalApplied = desiredTotal;
                     this.updateTransformUI();
                 }
-
             } else if (isScaling) {
                 const pivot = transformRef.pivot;
-                
                 const startVec = transformRef.startPoint.subtract(pivot);
                 const currentVec = event.point.subtract(pivot);
-                
-                // Safety: Prevent division by zero
                 if (Math.abs(startVec.x) < 0.001 || Math.abs(startVec.y) < 0.001) return;
-
                 let desiredScaleX = currentVec.x / startVec.x;
                 let desiredScaleY = currentVec.y / startVec.y;
-                
-                // --- Proportional Scaling Logic (Shift Key) ---
                 if (event.modifiers.shift) {
-                    // Use the axis with the largest change to define the uniform scale
-                    const absX = Math.abs(desiredScaleX);
-                    const absY = Math.abs(desiredScaleY);
-                    const uniformScale = Math.max(absX, absY);
-                    
-                    // Maintain the sign (flipping support)
+                    const uniformScale = Math.max(Math.abs(desiredScaleX), Math.abs(desiredScaleY));
                     desiredScaleX = (desiredScaleX < 0 ? -1 : 1) * uniformScale;
                     desiredScaleY = (desiredScaleY < 0 ? -1 : 1) * uniformScale;
                 }
-
-                // Safety: Prevent scaling to 0 which breaks the matrix
                 if (Math.abs(desiredScaleX) < 0.01) desiredScaleX = desiredScaleX < 0 ? -0.01 : 0.01;
                 if (Math.abs(desiredScaleY) < 0.01) desiredScaleY = desiredScaleY < 0 ? -0.01 : 0.01;
-
                 const incrementalScaleX = desiredScaleX / transformRef.totalScaleX;
                 const incrementalScaleY = desiredScaleY / transformRef.totalScaleY;
-                
                 if (incrementalScaleX !== 1 || incrementalScaleY !== 1) {
                     this.selectedItems.forEach(item => item.scale(incrementalScaleX, incrementalScaleY, pivot));
                     transformRef.totalScaleX = desiredScaleX;
                     transformRef.totalScaleY = desiredScaleY;
                     this.updateTransformUI();
                 }
-
             } else if (isDragging) {
-
                 if (event.modifiers.alt && !hasDuplicatedOnDrag && this.selectedItems.length > 0) {
                     const clones = this.selectedItems.map(item => item.clone());
                     this.setSelected(clones);
@@ -318,7 +329,6 @@ export class SvgEditor {
 
         this.tool.onMouseUp = (event) => {
             if (isDragging || isRotating || isScaling) this.saveHistory();
-            
             if (selectionRect) {
                 const items = this.drawLayer.children;
                 const newSelection = [];
@@ -330,22 +340,16 @@ export class SvgEditor {
                 selectionRect.remove();
                 selectionRect = null;
             }
-            
             isDragging = isRotating = isScaling = hasDuplicatedOnDrag = false;
             startPoint = null;
-            this.uiLayer.visible = true; // Show handles again
+            this.uiLayer.visible = true;
             this.updateTransformUI();
             this.canvas.style.cursor = 'default';
         };
     }
 
     getOppositeCorner(type) {
-        const map = { 
-            'scale-topLeft': 'bottomRight', 
-            'scale-topRight': 'bottomLeft', 
-            'scale-bottomLeft': 'topRight', 
-            'scale-bottomRight': 'topLeft' 
-        };
+        const map = { 'scale-topLeft': 'bottomRight', 'scale-topRight': 'bottomLeft', 'scale-bottomLeft': 'topRight', 'scale-bottomRight': 'topLeft' };
         return map[type];
     }
 
@@ -381,7 +385,6 @@ export class SvgEditor {
 
     getSelectionBounds() {
         if (this.selectedItems.length === 0) return null;
-        // Use strokeBounds to perfectly wrap the visual area (including strokes)
         let bounds = this.selectedItems[0].strokeBounds;
         for (let i = 1; i < this.selectedItems.length; i++) {
             bounds = bounds.unite(this.selectedItems[i].strokeBounds);
@@ -391,31 +394,20 @@ export class SvgEditor {
 
     updateTransformUI() {
         if (!this.uiLayer) return;
-        
         this.uiLayer.clear();
         const bounds = this.getSelectionBounds();
-        
         if (!bounds || this.selectedItems.length === 0) {
             this.drawLayer.activate();
             return;
         }
-
         this.uiLayer.activate();
-        
-        // Bounding Box
         const rect = new paper.Path.Rectangle(bounds);
         rect.strokeColor = '#3b82f6';
         rect.strokeWidth = 1;
         rect.dashArray = [4, 2];
         rect.data.isTool = true;
 
-        // Scaling Handles
-        const corners = { 
-            topLeft: bounds.topLeft, 
-            topRight: bounds.topRight, 
-            bottomLeft: bounds.bottomLeft, 
-            bottomRight: bounds.bottomRight 
-        };
+        const corners = { topLeft: bounds.topLeft, topRight: bounds.topRight, bottomLeft: bounds.bottomLeft, bottomRight: bounds.bottomRight };
         for (const [key, pos] of Object.entries(corners)) {
             const handle = new paper.Path.Circle(pos, 5);
             handle.fillColor = 'white';
@@ -423,16 +415,13 @@ export class SvgEditor {
             handle.data = { type: 'scale-' + key, isTool: true };
         }
 
-        // Rotation Handle
         const rotateHandlePos = bounds.topCenter.subtract(new paper.Point(0, 30));
         const line = new paper.Path.Line(bounds.topCenter, rotateHandlePos);
         line.strokeColor = '#3b82f6';
         line.data.isTool = true;
-        
         const rotateHandle = new paper.Path.Circle(rotateHandlePos, 6);
         rotateHandle.fillColor = '#3b82f6';
         rotateHandle.data = { type: 'rotate', isTool: true };
-
         this.drawLayer.activate();
     }
 
@@ -469,7 +458,6 @@ export class SvgEditor {
 
     bringToFrontSelected() {
         if (this.selectedItems.length === 0) return;
-        // Sort by index descending to preserve relative order when moving up
         const sorted = [...this.selectedItems].sort((a, b) => b.index - a.index);
         sorted.forEach(item => {
             const next = item.nextSibling;
@@ -481,7 +469,6 @@ export class SvgEditor {
 
     sendToBackSelected() {
         if (this.selectedItems.length === 0) return;
-        // Sort by index ascending to preserve relative order when moving down
         const sorted = [...this.selectedItems].sort((a, b) => a.index - b.index);
         sorted.forEach(item => {
             const prev = item.previousSibling;
@@ -511,7 +498,6 @@ export class SvgEditor {
 
     applyStyle(property, value, shouldSaveHistory = true) {
         if (this.selectedItems.length === 0) return;
-        
         this.selectedItems.forEach(item => {
             if (property === 'fillColor') {
                 item.fillColor = value;
@@ -521,9 +507,7 @@ export class SvgEditor {
             } else if (property === 'strokeWidth') {
                 const width = parseFloat(value);
                 item.strokeWidth = width;
-                if (width > 0 && !item.strokeColor) {
-                    item.strokeColor = '#000000';
-                }
+                if (width > 0 && !item.strokeColor) item.strokeColor = '#000000';
             } else if (property === 'fillOpacity') {
                 if (!item.fillColor) item.fillColor = '#000000'; 
                 item.fillColor.alpha = parseFloat(value);
@@ -533,22 +517,15 @@ export class SvgEditor {
                 item.strokeColor.alpha = parseFloat(value);
             }
         });
-        
-        if (shouldSaveHistory) {
-            this.saveHistory();
-        }
-        
+        if (shouldSaveHistory) this.saveHistory();
         this.view.update();
         this.updateTransformUI(); 
     }
 
     getSelectionStyle() {
         if (this.selectedItems.length === 0) return null;
-        
-        // Return style of the first selected item as reference
         const item = this.selectedItems[0];
         const hasStroke = !!item.strokeColor;
-        
         return {
             fillColor: item.fillColor ? item.fillColor.toCSS(true) : '#000000',
             fillOpacity: item.fillColor ? item.fillColor.alpha * 100 : 100,
@@ -635,12 +612,14 @@ export class SvgEditor {
 
     getSelectedSVGString() {
         if (this.selectedItems.length === 0) return '';
-        const clones = this.selectedItems.map(item => item.clone({ insert: false }));
+        const sortedItems = [...this.selectedItems].sort((a, b) => a.index - b.index);
+        const clones = sortedItems.map(item => item.clone({ insert: false }));
         const tempGroup = new paper.Group(clones);
         const bounds = tempGroup.strokeBounds;
         tempGroup.translate(new paper.Point(-bounds.x, -bounds.y));
         const rootSvg = this._createCleanRoot(bounds.width, bounds.height);
-        rootSvg.appendChild(this._sanitizeElement(tempGroup.exportSVG()));
+        const exportedGroup = tempGroup.exportSVG();
+        rootSvg.appendChild(this._sanitizeElement(exportedGroup));
         this._flattenRedundantContainers(rootSvg);
         const result = rootSvg.outerHTML;
         tempGroup.remove();
@@ -657,8 +636,7 @@ export class SvgEditor {
                     svgString = (!trimmedData.toLowerCase().startsWith('<svg') && !trimmedData.toLowerCase().startsWith('<?xml')) ? `<svg xmlns="http://www.w3.org/2000/svg">${trimmedData}</svg>` : trimmedData;
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(svgString, 'image/svg+xml');
-                    if (doc.querySelector('parsererror')) console.error('SVG Parsing Error');
-                    else {
+                    if (!doc.querySelector('parsererror')) {
                         doc.querySelectorAll('rect').forEach(rect => {
                             const rx = rect.getAttribute('rx'), ry = rect.getAttribute('ry');
                             if (rx && !ry) rect.setAttribute('ry', rx); else if (ry && !rx) rect.setAttribute('rx', ry);
@@ -671,22 +649,16 @@ export class SvgEditor {
                 expandShapes: true, insert: true,
                 onLoad: (item) => {
                     if (!item) return reject(new Error('Import failed'));
-                    
-                    // Flatten opacity: move global opacity into fill/stroke alpha
-                    // This makes it compatible with our separate Fill/Stroke opacity sliders
                     const flattenOpacity = (el) => {
                         if (el.opacity !== 1) {
                             const op = el.opacity;
                             if (el.fillColor) el.fillColor.alpha *= op;
                             if (el.strokeColor) el.strokeColor.alpha *= op;
-                            el.opacity = 1; // Reset global opacity
+                            el.opacity = 1;
                         }
-                        if (el.children) {
-                            el.children.forEach(flattenOpacity);
-                        }
+                        if (el.children) el.children.forEach(flattenOpacity);
                     };
                     flattenOpacity(item);
-
                     this.drawLayer.addChild(item);
                     item.position = this.view.center;
                     this.setSelected(item);
