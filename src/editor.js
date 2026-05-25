@@ -11,7 +11,12 @@ export class SvgEditor {
         paper.setup(this.canvas);
         this.project = paper.project;
         this.view = paper.view;
-        this.selectedItem = null;
+        this.selectedItems = [];
+        
+        // History for Undo
+        this.history = [];
+        this.maxHistory = 10;
+        this.isRestoring = false;
 
         // Initialize Tool for Selection and Dragging
         this.initTools();
@@ -20,13 +25,57 @@ export class SvgEditor {
         this.resize();
         window.addEventListener('resize', () => this.resize());
         
+        // Initial state
+        this.saveHistory();
+        
         console.log('Editor initialized');
+    }
+
+    saveHistory() {
+        if (this.isRestoring) return;
+        
+        const jsonState = this.project.exportJSON();
+        
+        // Only push if different from last state (simple check)
+        if (this.history.length > 0 && this.history[this.history.length - 1] === jsonState) {
+            return;
+        }
+
+        this.history.push(jsonState);
+        
+        if (this.history.length > this.maxHistory) {
+            this.history.shift(); // Keep only last 10
+        }
+    }
+
+    undo() {
+        if (this.history.length <= 1) return; // Need at least current + previous
+
+        this.isRestoring = true;
+        
+        // Remove current state
+        this.history.pop();
+        // Get previous state
+        const prevState = this.history[this.history.length - 1];
+        
+        this.project.clear();
+        this.project.importJSON(prevState);
+        
+        // Re-sync selection after undo
+        this.selectedItems = this.project.selectedItems;
+        this.updateUI();
+        
+        this.isRestoring = false;
+    }
+
+    // Getter for legacy support or single item logic
+    get selectedItem() {
+        return this.selectedItems.length > 0 ? this.selectedItems[this.selectedItems.length - 1] : null;
     }
 
     resize() {
         const container = this.canvas.parentElement;
         if (container) {
-            // Get the size of the parent container minus padding
             const style = window.getComputedStyle(container);
             const paddingX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
             const paddingY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
@@ -34,11 +83,9 @@ export class SvgEditor {
             const width = container.clientWidth - paddingX;
             const height = container.clientHeight - paddingY;
             
-            // Set canvas size
             this.canvas.width = width;
             this.canvas.height = height;
             
-            // Sync Paper.js view
             this.view.viewSize = new paper.Size(width, height);
             this.view.update();
         }
@@ -46,17 +93,18 @@ export class SvgEditor {
 
     initTools() {
         this.tool = new paper.Tool();
-        let dragItem = null;
         let selectionRect = null;
         let startPoint = null;
+        let isDragging = false;
 
         this.tool.onMouseDown = (event) => {
-            // Using Paper.js native event.point which should be correct now
             const point = event.point;
             
-            // Check if we are clicking inside the bounds of the already selected item
-            if (this.selectedItem && this.selectedItem.bounds.contains(point)) {
-                dragItem = this.selectedItem;
+            // Check if we are clicking inside the bounds of any selected item to start a drag
+            const hitSelected = this.selectedItems.some(item => item.bounds.contains(point));
+            
+            if (hitSelected && !event.modifiers.shift) {
+                isDragging = true;
                 this.canvas.style.cursor = 'move';
                 return;
             }
@@ -74,12 +122,24 @@ export class SvgEditor {
                 while (item.parent && item.parent !== this.project.activeLayer) {
                     item = item.parent;
                 }
-                this.setSelected(item);
-                dragItem = item;
-                this.canvas.style.cursor = 'move';
+
+                if (event.modifiers.shift) {
+                    // Toggle selection
+                    if (item.selected) {
+                        this.removeFromSelection(item);
+                    } else {
+                        this.addToSelection(item);
+                    }
+                } else {
+                    // Single selection
+                    this.setSelected(item);
+                    isDragging = true;
+                    this.canvas.style.cursor = 'move';
+                }
             } else {
-                this.setSelected(null);
-                dragItem = null;
+                if (!event.modifiers.shift) {
+                    this.setSelected(null);
+                }
                 startPoint = point;
                 this.canvas.style.cursor = 'crosshair';
             }
@@ -93,9 +153,9 @@ export class SvgEditor {
                 fill: true
             });
 
-            if (dragItem) {
+            if (isDragging) {
                 this.canvas.style.cursor = 'move';
-            } else if (hitResult || (this.selectedItem && this.selectedItem.bounds.contains(point))) {
+            } else if (hitResult || this.selectedItems.some(item => item.bounds.contains(point))) {
                 this.canvas.style.cursor = 'pointer';
             } else {
                 this.canvas.style.cursor = 'default';
@@ -103,32 +163,44 @@ export class SvgEditor {
         };
 
         this.tool.onMouseDrag = (event) => {
-            const point = event.point;
-            
-            if (dragItem) {
-                dragItem.position = dragItem.position.add(event.delta);
+            if (isDragging) {
+                for (const item of this.selectedItems) {
+                    item.position = item.position.add(event.delta);
+                }
             } else if (startPoint) {
                 if (selectionRect) selectionRect.remove();
-                selectionRect = new paper.Path.Rectangle(startPoint, point);
+                selectionRect = new paper.Path.Rectangle(startPoint, event.point);
                 selectionRect.strokeColor = '#3b82f6';
                 selectionRect.fillColor = new paper.Color(59, 130, 246, 0.1);
                 selectionRect.dashArray = [4, 4];
             }
         };
 
-        this.tool.onMouseUp = () => {
+        this.tool.onMouseUp = (event) => {
+            if (isDragging) {
+                this.saveHistory();
+            }
+            
             if (selectionRect) {
                 const items = this.project.activeLayer.children;
+                const newSelection = [];
                 for (const item of items) {
+                    if (item === selectionRect) continue;
                     if (selectionRect.intersects(item) || selectionRect.contains(item.bounds.center)) {
-                        this.setSelected(item);
-                        break;
+                        newSelection.push(item);
                     }
                 }
+                
+                if (event.modifiers.shift) {
+                    newSelection.forEach(item => this.addToSelection(item));
+                } else {
+                    this.setSelected(newSelection);
+                }
+                
                 selectionRect.remove();
                 selectionRect = null;
             }
-            dragItem = null;
+            isDragging = false;
             startPoint = null;
             this.canvas.style.cursor = 'default';
         };
@@ -136,58 +208,171 @@ export class SvgEditor {
 
     importSVG(data) {
         return new Promise((resolve, reject) => {
-            this.project.importSVG(data, {
-                expandShapes: true,
-                insert: true,
-                onLoad: (item) => {
-                    this.project.activeLayer.addChild(item);
-                    item.position = this.view.center;
+            if (!data) return reject(new Error('No data provided'));
+
+            let svgString = data;
+
+            try {
+                // If it's a string, let's normalize it safely using DOMParser
+                if (typeof data === 'string') {
+                    const trimmedData = data.trim();
                     
-                    // Force initial selection for feedback
-                    this.setSelected(item);
+                    // If it doesn't start with <svg, wrap it to make it a valid SVG document
+                    if (!trimmedData.toLowerCase().startsWith('<svg') && !trimmedData.toLowerCase().startsWith('<?xml')) {
+                        svgString = `<svg xmlns="http://www.w3.org/2000/svg">${trimmedData}</svg>`;
+                    } else {
+                        svgString = trimmedData;
+                    }
+
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(svgString, 'image/svg+xml');
                     
-                    this.view.update();
-                    resolve(item);
-                },
-                onError: (error) => reject(error)
-            });
+                    // Check for parsing errors
+                    const errorNode = doc.querySelector('parsererror');
+                    if (errorNode) {
+                        console.error('SVG Parsing Error:', errorNode.textContent);
+                        // We still try to import the raw string if parsing fails, 
+                        // as Paper.js might be more lenient than DOMParser
+                    } else {
+                        // Normalize rx/ry for all rectangles
+                        const rects = doc.querySelectorAll('rect');
+                        rects.forEach(rect => {
+                            const rx = rect.getAttribute('rx');
+                            const ry = rect.getAttribute('ry');
+                            if (rx && !ry) rect.setAttribute('ry', rx);
+                            else if (ry && !rx) rect.setAttribute('rx', ry);
+                        });
+                        svgString = new XMLSerializer().serializeToString(doc);
+                    }
+                }
+            } catch (e) {
+                console.warn('Normalization failed, trying raw import:', e);
+                svgString = data;
+            }
+
+            try {
+                this.project.importSVG(svgString, {
+                    expandShapes: true, 
+                    insert: true,
+                    onLoad: (item) => {
+                        if (!item) {
+                            reject(new Error('Import resulted in no items. Check if the SVG code is valid.'));
+                            return;
+                        }
+                        
+                        item.position = this.view.center;
+                        this.setSelected(item);
+                        this.saveHistory();
+                        this.view.update();
+                        resolve(item);
+                    },
+                    onError: (error) => {
+                        console.error('Paper.js import error:', error);
+                        reject(error);
+                    }
+                });
+            } catch (err) {
+                console.error('Paper.js sync error:', err);
+                reject(err);
+            }
         });
     }
 
-    setSelected(item) {
-        // Clear previous selection
+    setSelected(items) {
         this.project.deselectAll();
+        this.selectedItems = [];
 
-        this.selectedItem = item;
-
-        if (this.selectedItem) {
-            this.selectedItem.selected = true;
-            // Use fullySelected for better visual dots on paths
-            this.selectedItem.fullySelected = true;
+        if (items) {
+            const itemsArray = Array.isArray(items) ? items : [items];
+            for (const item of itemsArray) {
+                item.selected = true;
+                item.fullySelected = true;
+                this.selectedItems.push(item);
+            }
         }
 
-        this.view.update();
+        this.updateUI();
+    }
 
-        // Dispatch event for UI
-        const event = new CustomEvent('selectionChanged', { detail: { item: this.selectedItem } });
+    addToSelection(item) {
+        if (!item.selected) {
+            item.selected = true;
+            item.fullySelected = true;
+            this.selectedItems.push(item);
+            this.updateUI();
+        }
+    }
+
+    removeFromSelection(item) {
+        item.selected = false;
+        item.fullySelected = false;
+        this.selectedItems = this.selectedItems.filter(i => i !== item);
+        this.updateUI();
+    }
+
+    updateUI() {
+        this.view.update();
+        const event = new CustomEvent('selectionChanged', { 
+            detail: { 
+                item: this.selectedItem,
+                items: this.selectedItems 
+            } 
+        });
         window.dispatchEvent(event);
     }
 
     deleteSelectedItem() {
-        if (this.selectedItem) {
-            this.selectedItem.remove();
+        if (this.selectedItems.length > 0) {
+            for (const item of this.selectedItems) {
+                item.remove();
+            }
             this.setSelected(null);
+            this.saveHistory();
             this.view.update();
         }
     }
 
+    groupSelectedItems() {
+        if (this.selectedItems.length < 2) return;
+
+        const group = new paper.Group(this.selectedItems);
+        this.setSelected(group);
+        this.saveHistory();
+    }
+
+    ungroupSelectedItems() {
+        const groups = this.selectedItems.filter(item => item instanceof paper.Group);
+        if (groups.length === 0) return;
+
+        const newSelection = [];
+        for (const group of groups) {
+            const children = Array.from(group.children);
+            for (const child of children) {
+                if (child.clipMask) {
+                    // Destroy the clipping mask when breaking the group apart
+                    // This prevents the original SVG's viewBox from clipping the entire canvas
+                    child.remove();
+                } else {
+                    // Explicitly move to activeLayer to break out of original SVG structure
+                    this.project.activeLayer.addChild(child);
+                    newSelection.push(child);
+                }
+            }
+            // Remove the now-empty group container
+            group.remove();
+        }
+
+        this.setSelected(newSelection);
+        this.saveHistory();
+    }
+
     exportSVG() {
-        const svg = this.project.exportSVG({ asString: true });
+        const svg = this.getSVGString();
         this._downloadSVG(svg, 'canvas-export.svg');
     }
 
     downloadSelectedSVG() {
-        if (!this.selectedItem) return;
+        if (this.selectedItems.length === 0) return;
         const svg = this.getSelectedSVGString();
         this._downloadSVG(svg, 'selection-export.svg');
     }
@@ -205,47 +390,134 @@ export class SvgEditor {
         URL.revokeObjectURL(url);
     }
 
+    _createCleanRoot(width, height) {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        const w = Math.round(width);
+        const h = Math.round(height);
+        svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+        svg.setAttribute('width', w);
+        svg.setAttribute('height', h);
+        return svg;
+    }
+
+    _sanitizeElement(el) {
+        if (!el || el.nodeType !== 1) return el;
+
+        // 1. Remove clipping and Paper.js attributes
+        el.removeAttribute('clip-path');
+        if (el.id && (el.id.startsWith('clip-') || el.id.startsWith('paper-'))) {
+            el.removeAttribute('id');
+        }
+
+        // 2. Strip verbose default attributes
+        const defaults = {
+            'fill-rule': 'nonzero',
+            'stroke-linecap': 'butt',
+            'stroke-linejoin': 'miter',
+            'stroke-miterlimit': '10',
+            'stroke-dasharray': '',
+            'stroke-dashoffset': '0',
+            'font-family': 'none',
+            'font-weight': 'none',
+            'font-size': 'none',
+            'text-anchor': 'none',
+            'mix-blend-mode': 'normal',
+            'fill': 'none',
+            'stroke': 'none'
+        };
+
+        for (const [attr, defaultValue] of Object.entries(defaults)) {
+            const val = el.getAttribute(attr);
+            if (val === defaultValue || (attr === 'stroke-dasharray' && val === '')) {
+                el.removeAttribute(attr);
+            }
+        }
+
+        if (el.getAttribute('style') === 'mix-blend-mode: normal') {
+            el.removeAttribute('style');
+        }
+
+        // 3. Process children recursively
+        const children = Array.from(el.childNodes);
+        for (const child of children) {
+            if (child.nodeType === 1) {
+                const tag = child.tagName.toLowerCase();
+                if (tag === 'defs' || tag === 'clippath') {
+                    el.removeChild(child);
+                } else {
+                    this._sanitizeElement(child);
+                }
+            }
+        }
+
+        return el;
+    }
+
+    _flattenRedundantContainers(parent) {
+        if (!parent || parent.nodeType !== 1) return;
+
+        const children = Array.from(parent.childNodes);
+        for (const child of children) {
+            if (child.nodeType !== 1) continue;
+
+            // First, recurse to handle deeper levels
+            this._flattenRedundantContainers(child);
+
+            const tag = child.tagName.toLowerCase();
+            if (tag === 'g' || tag === 'svg') {
+                const significantAttrs = ['fill', 'stroke', 'stroke-width', 'opacity', 'transform', 'filter', 'mask'];
+                const hasSignificantAttr = Array.from(child.attributes).some(attr => 
+                    significantAttrs.includes(attr.name.toLowerCase())
+                );
+
+                // If it's just a generic container, move its children up and remove it
+                if (!hasSignificantAttr) {
+                    while (child.firstChild) {
+                        parent.insertBefore(child.firstChild, child);
+                    }
+                    parent.removeChild(child);
+                }
+            }
+        }
+    }
+
     getSVGString() {
-        return this.project.exportSVG({ asString: true });
+        const viewSize = this.view.viewSize;
+        const rootSvg = this._createCleanRoot(viewSize.width, viewSize.height);
+
+        this.project.activeLayer.children.forEach(item => {
+            if (item.data && item.data.isTool) return;
+            const el = item.exportSVG();
+            rootSvg.appendChild(this._sanitizeElement(el));
+        });
+
+        // Run flattening on the whole structure
+        this._flattenRedundantContainers(rootSvg);
+
+        return rootSvg.outerHTML;
     }
 
     getSelectedSVGString() {
-        if (!this.selectedItem) return '';
+        if (this.selectedItems.length === 0) return '';
         
-        // 1. Clone the item to avoid modifying the original in the project
-        const clone = this.selectedItem.clone({ insert: false });
+        const clones = this.selectedItems.map(item => item.clone({ insert: false }));
+        const tempGroup = new paper.Group(clones);
         
-        // 2. Use strokeBounds to ensure we capture the entire visual area including strokes
-        const bounds = this.selectedItem.strokeBounds;
+        const bounds = tempGroup.strokeBounds;
+        tempGroup.translate(new paper.Point(-bounds.x, -bounds.y));
         
-        // 3. Translate the clone to the origin (0,0)
-        // We subtract the top-left coordinates of the stroke bounds
-        clone.translate(new paper.Point(-bounds.x, -bounds.y));
-        
-        // 4. Export the normalized item to a DOM element
-        const exportedElement = clone.exportSVG();
-        
-        // 5. Create a clean root <svg> element
-        const rootSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        rootSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-        rootSvg.setAttribute('viewBox', `0 0 ${bounds.width} ${bounds.height}`);
-        rootSvg.setAttribute('width', bounds.width);
-        rootSvg.setAttribute('height', bounds.height);
+        const rootSvg = this._createCleanRoot(bounds.width, bounds.height);
 
-        // 6. Handle potential nested <svg> tags from Paper.js export
-        if (exportedElement.tagName.toLowerCase() === 'svg') {
-            // Extract children from the inner <svg> to flatten the structure
-            while (exportedElement.firstChild) {
-                rootSvg.appendChild(exportedElement.firstChild);
-            }
-        } else {
-            rootSvg.appendChild(exportedElement);
-        }
+        // Export the group to preserve the translation matrix applied above
+        const exportedGroup = tempGroup.exportSVG();
+        rootSvg.appendChild(this._sanitizeElement(exportedGroup));
         
+        // Run flattening on the whole structure
+        this._flattenRedundantContainers(rootSvg);
+
         const result = rootSvg.outerHTML;
-        
-        // 7. Cleanup the temporary clone
-        clone.remove();
+        tempGroup.remove();
         
         return result;
     }

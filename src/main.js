@@ -21,6 +21,8 @@ const contextMenu = document.getElementById('context-menu');
 const ctxDeleteBtn = document.getElementById('ctx-delete');
 const ctxCopyBtn = document.getElementById('ctx-copy');
 const ctxDownloadBtn = document.getElementById('ctx-download');
+const ctxGroupBtn = document.getElementById('ctx-group');
+const ctxUngroupBtn = document.getElementById('ctx-ungroup');
 
 const alignBtns = {
     left: document.getElementById('align-left'),
@@ -38,7 +40,7 @@ const flipBtns = {
 
 // Handle Selection UI Updates
 window.addEventListener('selectionChanged', (e) => {
-    const hasSelection = !!e.detail.item;
+    const hasSelection = e.detail.items && e.detail.items.length > 0;
     
     Object.values(alignBtns).forEach(btn => btn.disabled = !hasSelection);
     Object.values(flipBtns).forEach(btn => btn.disabled = !hasSelection);
@@ -52,6 +54,12 @@ window.addEventListener('keydown', (e) => {
     // Delete Shortcut
     if (e.key === 'Delete' || e.key === 'Backspace') {
         editor.deleteSelectedItem();
+    }
+
+    // Ctrl+Z (Undo)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        editor.undo();
     }
 
     // Ctrl+C (Copy)
@@ -150,7 +158,12 @@ editor.canvas.addEventListener('contextmenu', (e) => {
         while (item.parent && item.parent !== editor.project.activeLayer) {
             item = item.parent;
         }
-        editor.setSelected(item);
+        
+        // If the item is not already selected, select only it
+        // Otherwise, keep the current multi-selection
+        if (!item.selected) {
+            editor.setSelected(item);
+        }
     }
 
     if (editor.selectedItem) {
@@ -190,6 +203,16 @@ ctxDownloadBtn.addEventListener('click', () => {
     contextMenu.classList.add('hidden');
 });
 
+ctxGroupBtn.addEventListener('click', () => {
+    editor.groupSelectedItems();
+    contextMenu.classList.add('hidden');
+});
+
+ctxUngroupBtn.addEventListener('click', () => {
+    editor.ungroupSelectedItems();
+    contextMenu.classList.add('hidden');
+});
+
 // Import Handlers
 importFileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
@@ -226,13 +249,15 @@ confirmCodeBtn.addEventListener('click', () => {
 // Transform Handlers
 Object.entries(alignBtns).forEach(([pos, btn]) => {
     btn.addEventListener('click', () => {
-        align(editor.selectedItem, pos, editor.project.view);
+        align(editor.selectedItems, pos, editor.project.view);
+        editor.saveHistory();
     });
 });
 
 Object.entries(flipBtns).forEach(([axis, btn]) => {
     btn.addEventListener('click', () => {
-        flip(editor.selectedItem, axis);
+        flip(editor.selectedItems, axis);
+        editor.saveHistory();
     });
 });
 
