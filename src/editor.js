@@ -4,7 +4,6 @@ export class SvgEditor {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
         
-        // Use standard selection handles
         paper.settings.handleSize = 6;
         paper.settings.hitTolerance = 10;
         
@@ -13,29 +12,77 @@ export class SvgEditor {
         this.view = paper.view;
         this.selectedItems = [];
         
-        // History for Undo
         this.history = [];
         this.maxHistory = 10;
         this.isRestoring = false;
 
-        // Initialize Tool for Selection and Dragging
-        this.initTools();
+        // UI Layer for Transform Handles
+        this.uiLayer = new paper.Layer();
+        this.uiLayer.name = 'ui-layer';
+        this.uiLayer.data.isTool = true; // Mark layer as tool
 
-        // Auto-resize handling
+        // Create/Ensure a drawing layer
+        if (this.project.layers.length < 2) {
+            const drawLayer = new paper.Layer();
+            drawLayer.name = 'draw-layer';
+            drawLayer.activate();
+        } else {
+            this.project.layers[0].activate();
+        }
+
+        this.initTools();
         this.resize();
         window.addEventListener('resize', () => this.resize());
         
-        // Initial state
         this.loadFromLocalStorage();
         this.saveHistory();
-        
-        console.log('Editor initialized');
+    }
+
+    get drawLayer() {
+        return this.project.layers.find(l => l.name === 'draw-layer') || this.project.layers[0];
+    }
+
+    _getCleanJSON() {
+        let json;
+        if (this.uiLayer) {
+            this.uiLayer.remove();
+            json = this.project.exportJSON();
+            this.project.addLayer(this.uiLayer);
+            this.drawLayer.activate();
+        } else {
+            json = this.project.exportJSON();
+        }
+        return json;
     }
 
     saveToLocalStorage() {
         if (this.isRestoring) return;
-        const jsonState = this.project.exportJSON();
-        localStorage.setItem('svg-editor-work', jsonState);
+        localStorage.setItem('svg-editor-work', this._getCleanJSON());
+    }
+
+    _sanitizeLayers() {
+        // 1. Destroy any ghost UI layers from old saves
+        const ghostLayers = this.project.layers.filter(l => l.name === 'ui-layer' || (l.data && l.data.isTool));
+        ghostLayers.forEach(l => l.remove());
+
+        // 2. Identify or create draw layer
+        let drawLayer = this.project.layers.find(l => l.name === 'draw-layer');
+        if (!drawLayer) {
+            drawLayer = new paper.Layer({ name: 'draw-layer' });
+            // Move everything from other old layers to drawLayer
+            this.project.layers.forEach(layer => {
+                if (layer !== drawLayer) {
+                    drawLayer.addChildren(Array.from(layer.children));
+                    layer.remove();
+                }
+            });
+        }
+
+        // 3. Create fresh UI layer
+        this.uiLayer = new paper.Layer({ name: 'ui-layer' });
+        this.uiLayer.data.isTool = true;
+        
+        drawLayer.activate();
     }
 
     loadFromLocalStorage() {
@@ -45,6 +92,7 @@ export class SvgEditor {
                 this.isRestoring = true;
                 this.project.clear();
                 this.project.importJSON(savedWork);
+                this._sanitizeLayers();
                 this.isRestoring = false;
             } catch (err) {
                 console.error('Failed to load saved work:', err);
@@ -54,7 +102,7 @@ export class SvgEditor {
     }
 
     clearCanvas() {
-        this.project.clear();
+        this.drawLayer.clear();
         localStorage.removeItem('svg-editor-work');
         this.history = [];
         this.setSelected(null);
@@ -64,48 +112,33 @@ export class SvgEditor {
     saveHistory() {
         if (this.isRestoring) return;
         
-        const jsonState = this.project.exportJSON();
+        const jsonState = this._getCleanJSON();
+        if (this.history.length > 0 && this.history[this.history.length - 1] === jsonState) return;
         
-        // Only push if different from last state (simple check)
-        if (this.history.length > 0 && this.history[this.history.length - 1] === jsonState) {
-            return;
-        }
-
         this.history.push(jsonState);
-        this.saveToLocalStorage(); // Save to storage on every history change
-        
-        if (this.history.length > this.maxHistory) {
-            this.history.shift(); // Keep only last 10
-        }
+        this.saveToLocalStorage();
+        if (this.history.length > this.maxHistory) this.history.shift();
     }
 
     undo() {
         if (this.history.length <= 1) return; 
-
         this.isRestoring = true;
         
-        // Kill any active drag state immediately
-        this.tool.isDragging = false; 
+        if (this.tool) this.tool.isDragging = false;
         this.canvas.style.cursor = 'default';
-
-        // Clear current selection BEFORE restoring
-        this.setSelected(null);
         
         this.history.pop();
         const prevState = this.history[this.history.length - 1];
         
         this.project.clear();
         this.project.importJSON(prevState);
-        
-        // Explicitly ensure nothing is selected after undo to avoid stale reference bugs
-        this.project.deselectAll();
-        this.selectedItems = [];
+        this._sanitizeLayers();
+
+        this.setSelected(null); // Clear selection after undo to be safe
         this.updateUI();
-        
         this.isRestoring = false;
     }
 
-    // Getter for legacy support or single item logic
     get selectedItem() {
         return this.selectedItems.length > 0 ? this.selectedItems[this.selectedItems.length - 1] : null;
     }
@@ -116,13 +149,10 @@ export class SvgEditor {
             const style = window.getComputedStyle(container);
             const paddingX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
             const paddingY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
-            
             const width = container.clientWidth - paddingX;
             const height = container.clientHeight - paddingY;
-            
             this.canvas.width = width;
             this.canvas.height = height;
-            
             this.view.viewSize = new paper.Size(width, height);
             this.view.update();
         }
@@ -133,89 +163,145 @@ export class SvgEditor {
         let selectionRect = null;
         let startPoint = null;
         let isDragging = false;
+        let isRotating = false;
+        let isScaling = false;
         let hasDuplicatedOnDrag = false;
+        let transformRef = null;
+        let handleType = null;
 
         this.tool.onMouseDown = (event) => {
-            // Only respond to left mouse button (button 0)
             if (event.event.button !== 0) return;
-
             const point = event.point;
             hasDuplicatedOnDrag = false;
-            
-            // Check if we are clicking inside the bounds of any selected item to start a drag
+
+            // 1. Hit test UI Layer handles first
+            const uiHit = this.uiLayer.hitTest(point, { tolerance: 10, fill: true, stroke: true });
+            if (uiHit && uiHit.item && uiHit.item.data) {
+                handleType = uiHit.item.data.type;
+                if (handleType === 'rotate') {
+                    isRotating = true;
+                    const center = this.getSelectionBounds().center;
+                    transformRef = { 
+                        center: center, 
+                        startAngle: point.subtract(center).angle,
+                        totalApplied: 0
+                    };
+                    return;
+                } else if (handleType.startsWith('scale-')) {
+                    isScaling = true;
+                    const bounds = this.getSelectionBounds();
+                    transformRef = { 
+                        bounds: bounds.clone(), 
+                        startPoint: point, 
+                        pivot: bounds[this.getOppositeCorner(handleType)],
+                        totalScaleX: 1,
+                        totalScaleY: 1
+                    };
+                    return;
+                }
+            }
+
+            // 2. Check if clicking on existing selection to drag
             const hitSelected = this.selectedItems.some(item => item.bounds.contains(point));
-            
             if (hitSelected && !event.modifiers.shift) {
                 isDragging = true;
                 this.canvas.style.cursor = 'move';
+                // Hide handles while dragging for better visibility
+                this.uiLayer.visible = false;
                 return;
             }
 
-            const hitResult = this.project.hitTest(point, {
-                segments: true,
-                stroke: true,
-                fill: true,
-                tolerance: 10,
-                curves: true
+            // 3. Hit test drawing layer
+            const hitResult = this.drawLayer.hitTest(point, { 
+                segments: true, stroke: true, fill: true, tolerance: 10, curves: true 
             });
 
             if (hitResult && hitResult.item) {
                 let item = hitResult.item;
-                while (item.parent && item.parent !== this.project.activeLayer) {
-                    item = item.parent;
-                }
-
+                while (item.parent && item.parent !== this.drawLayer) item = item.parent;
+                
                 if (event.modifiers.shift) {
-                    // Toggle selection
-                    if (item.selected) {
-                        this.removeFromSelection(item);
-                    } else {
-                        this.addToSelection(item);
-                    }
+                    item.selected ? this.removeFromSelection(item) : this.addToSelection(item);
                 } else {
-                    // Single selection
                     this.setSelected(item);
                     isDragging = true;
-                    this.canvas.style.cursor = 'move';
+                    this.uiLayer.visible = false;
                 }
             } else {
-                if (!event.modifiers.shift) {
-                    this.setSelected(null);
-                }
+                // Clicking on empty space
+                if (!event.modifiers.shift) this.setSelected(null);
                 startPoint = point;
-                this.canvas.style.cursor = 'crosshair';
-            }
-        };
-
-        this.tool.onMouseMove = (event) => {
-            const point = event.point;
-            const hitResult = this.project.hitTest(point, {
-                tolerance: 8,
-                stroke: true,
-                fill: true
-            });
-
-            if (isDragging) {
-                this.canvas.style.cursor = 'move';
-            } else if (hitResult || this.selectedItems.some(item => item.bounds.contains(point))) {
-                this.canvas.style.cursor = 'pointer';
-            } else {
-                this.canvas.style.cursor = 'default';
             }
         };
 
         this.tool.onMouseDrag = (event) => {
-            if (isDragging) {
-                // Alt+Drag duplication logic
+            if (isRotating) {
+                const center = transformRef.center;
+                const currentAngle = event.point.subtract(center).angle;
+                let rawDelta = currentAngle - transformRef.startAngle;
+                
+                let desiredTotal = rawDelta;
+                
+                // --- Snapping Logic (Shift Key) ---
+                if (event.modifiers.shift) {
+                    const snapAngle = 15;
+                    desiredTotal = Math.round(rawDelta / snapAngle) * snapAngle;
+                }
+
+                const incrementalDelta = desiredTotal - transformRef.totalApplied;
+                
+                if (incrementalDelta !== 0) {
+                    this.selectedItems.forEach(item => item.rotate(incrementalDelta, center));
+                    transformRef.totalApplied = desiredTotal;
+                    this.updateTransformUI();
+                }
+
+            } else if (isScaling) {
+                const pivot = transformRef.pivot;
+                
+                const startVec = transformRef.startPoint.subtract(pivot);
+                const currentVec = event.point.subtract(pivot);
+                
+                // Safety: Prevent division by zero
+                if (Math.abs(startVec.x) < 0.001 || Math.abs(startVec.y) < 0.001) return;
+
+                let desiredScaleX = currentVec.x / startVec.x;
+                let desiredScaleY = currentVec.y / startVec.y;
+                
+                // --- Proportional Scaling Logic (Shift Key) ---
+                if (event.modifiers.shift) {
+                    // Use the axis with the largest change to define the uniform scale
+                    const absX = Math.abs(desiredScaleX);
+                    const absY = Math.abs(desiredScaleY);
+                    const uniformScale = Math.max(absX, absY);
+                    
+                    // Maintain the sign (flipping support)
+                    desiredScaleX = (desiredScaleX < 0 ? -1 : 1) * uniformScale;
+                    desiredScaleY = (desiredScaleY < 0 ? -1 : 1) * uniformScale;
+                }
+
+                // Safety: Prevent scaling to 0 which breaks the matrix
+                if (Math.abs(desiredScaleX) < 0.01) desiredScaleX = desiredScaleX < 0 ? -0.01 : 0.01;
+                if (Math.abs(desiredScaleY) < 0.01) desiredScaleY = desiredScaleY < 0 ? -0.01 : 0.01;
+
+                const incrementalScaleX = desiredScaleX / transformRef.totalScaleX;
+                const incrementalScaleY = desiredScaleY / transformRef.totalScaleY;
+                
+                if (incrementalScaleX !== 1 || incrementalScaleY !== 1) {
+                    this.selectedItems.forEach(item => item.scale(incrementalScaleX, incrementalScaleY, pivot));
+                    transformRef.totalScaleX = desiredScaleX;
+                    transformRef.totalScaleY = desiredScaleY;
+                    this.updateTransformUI();
+                }
+
+            } else if (isDragging) {
+
                 if (event.modifiers.alt && !hasDuplicatedOnDrag && this.selectedItems.length > 0) {
                     const clones = this.selectedItems.map(item => item.clone());
                     this.setSelected(clones);
                     hasDuplicatedOnDrag = true;
                 }
-
-                for (const item of this.selectedItems) {
-                    item.position = item.position.add(event.delta);
-                }
+                this.selectedItems.forEach(item => item.position = item.position.add(event.delta));
             } else if (startPoint) {
                 if (selectionRect) selectionRect.remove();
                 selectionRect = new paper.Path.Rectangle(startPoint, event.point);
@@ -226,181 +312,151 @@ export class SvgEditor {
         };
 
         this.tool.onMouseUp = (event) => {
-            if (isDragging) {
-                this.saveHistory();
-            }
+            if (isDragging || isRotating || isScaling) this.saveHistory();
             
             if (selectionRect) {
-                const items = this.project.activeLayer.children;
+                const items = this.drawLayer.children;
                 const newSelection = [];
                 for (const item of items) {
                     if (item === selectionRect) continue;
-                    if (selectionRect.intersects(item) || selectionRect.contains(item.bounds.center)) {
-                        newSelection.push(item);
-                    }
+                    if (selectionRect.intersects(item) || selectionRect.contains(item.bounds.center)) newSelection.push(item);
                 }
-                
-                if (event.modifiers.shift) {
-                    newSelection.forEach(item => this.addToSelection(item));
-                } else {
-                    this.setSelected(newSelection);
-                }
-                
+                event.modifiers.shift ? newSelection.forEach(item => this.addToSelection(item)) : this.setSelected(newSelection);
                 selectionRect.remove();
                 selectionRect = null;
             }
             
-            // CRITICAL: Reset ALL state variables
-            isDragging = false;
+            isDragging = isRotating = isScaling = hasDuplicatedOnDrag = false;
             startPoint = null;
-            hasDuplicatedOnDrag = false;
+            this.uiLayer.visible = true; // Show handles again
+            this.updateTransformUI();
             this.canvas.style.cursor = 'default';
         };
     }
 
-    duplicateSelectedItems() {
-        if (this.selectedItems.length === 0) return;
-
-        const clones = this.selectedItems.map(item => {
-            const clone = item.clone();
-            // Offset the duplicate slightly for visibility
-            clone.position = clone.position.add(new paper.Point(20, 20));
-            return clone;
-        });
-
-        this.setSelected(clones);
-        this.saveHistory();
-    }
-
-    importSVG(data) {
-        return new Promise((resolve, reject) => {
-            if (!data) return reject(new Error('No data provided'));
-
-            let svgString = data;
-
-            try {
-                // If it's a string, let's normalize it safely using DOMParser
-                if (typeof data === 'string') {
-                    const trimmedData = data.trim();
-                    
-                    // If it doesn't start with <svg, wrap it to make it a valid SVG document
-                    if (!trimmedData.toLowerCase().startsWith('<svg') && !trimmedData.toLowerCase().startsWith('<?xml')) {
-                        svgString = `<svg xmlns="http://www.w3.org/2000/svg">${trimmedData}</svg>`;
-                    } else {
-                        svgString = trimmedData;
-                    }
-
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(svgString, 'image/svg+xml');
-                    
-                    // Check for parsing errors
-                    const errorNode = doc.querySelector('parsererror');
-                    if (errorNode) {
-                        console.error('SVG Parsing Error:', errorNode.textContent);
-                        // We still try to import the raw string if parsing fails, 
-                        // as Paper.js might be more lenient than DOMParser
-                    } else {
-                        // Normalize rx/ry for all rectangles
-                        const rects = doc.querySelectorAll('rect');
-                        rects.forEach(rect => {
-                            const rx = rect.getAttribute('rx');
-                            const ry = rect.getAttribute('ry');
-                            if (rx && !ry) rect.setAttribute('ry', rx);
-                            else if (ry && !rx) rect.setAttribute('rx', ry);
-                        });
-                        svgString = new XMLSerializer().serializeToString(doc);
-                    }
-                }
-            } catch (e) {
-                console.warn('Normalization failed, trying raw import:', e);
-                svgString = data;
-            }
-
-            try {
-                this.project.importSVG(svgString, {
-                    expandShapes: true, 
-                    insert: true,
-                    onLoad: (item) => {
-                        if (!item) {
-                            reject(new Error('Import resulted in no items. Check if the SVG code is valid.'));
-                            return;
-                        }
-                        
-                        item.position = this.view.center;
-                        this.setSelected(item);
-                        this.saveHistory();
-                        this.view.update();
-                        resolve(item);
-                    },
-                    onError: (error) => {
-                        console.error('Paper.js import error:', error);
-                        reject(error);
-                    }
-                });
-            } catch (err) {
-                console.error('Paper.js sync error:', err);
-                reject(err);
-            }
-        });
+    getOppositeCorner(type) {
+        const map = { 
+            'scale-topLeft': 'bottomRight', 
+            'scale-topRight': 'bottomLeft', 
+            'scale-bottomLeft': 'topRight', 
+            'scale-bottomRight': 'topLeft' 
+        };
+        return map[type];
     }
 
     setSelected(items) {
         this.project.deselectAll();
         this.selectedItems = [];
-
         if (items) {
             const itemsArray = Array.isArray(items) ? items : [items];
-            for (const item of itemsArray) {
+            itemsArray.forEach(item => {
                 item.selected = true;
-                item.fullySelected = true;
                 this.selectedItems.push(item);
-            }
+            });
         }
-
+        this.updateTransformUI();
         this.updateUI();
     }
 
     addToSelection(item) {
         if (!item.selected) {
             item.selected = true;
-            item.fullySelected = true;
             this.selectedItems.push(item);
+            this.updateTransformUI();
             this.updateUI();
         }
     }
 
     removeFromSelection(item) {
         item.selected = false;
-        item.fullySelected = false;
         this.selectedItems = this.selectedItems.filter(i => i !== item);
+        this.updateTransformUI();
         this.updateUI();
+    }
+
+    getSelectionBounds() {
+        if (this.selectedItems.length === 0) return null;
+        // Use strokeBounds to perfectly wrap the visual area (including strokes)
+        let bounds = this.selectedItems[0].strokeBounds;
+        for (let i = 1; i < this.selectedItems.length; i++) {
+            bounds = bounds.unite(this.selectedItems[i].strokeBounds);
+        }
+        return bounds;
+    }
+
+    updateTransformUI() {
+        if (!this.uiLayer) return;
+        
+        this.uiLayer.clear();
+        const bounds = this.getSelectionBounds();
+        
+        if (!bounds || this.selectedItems.length === 0) {
+            this.drawLayer.activate();
+            return;
+        }
+
+        this.uiLayer.activate();
+        
+        // Bounding Box
+        const rect = new paper.Path.Rectangle(bounds);
+        rect.strokeColor = '#3b82f6';
+        rect.strokeWidth = 1;
+        rect.dashArray = [4, 2];
+        rect.data.isTool = true;
+
+        // Scaling Handles
+        const corners = { 
+            topLeft: bounds.topLeft, 
+            topRight: bounds.topRight, 
+            bottomLeft: bounds.bottomLeft, 
+            bottomRight: bounds.bottomRight 
+        };
+        for (const [key, pos] of Object.entries(corners)) {
+            const handle = new paper.Path.Circle(pos, 5);
+            handle.fillColor = 'white';
+            handle.strokeColor = '#3b82f6';
+            handle.data = { type: 'scale-' + key, isTool: true };
+        }
+
+        // Rotation Handle
+        const rotateHandlePos = bounds.topCenter.subtract(new paper.Point(0, 30));
+        const line = new paper.Path.Line(bounds.topCenter, rotateHandlePos);
+        line.strokeColor = '#3b82f6';
+        line.data.isTool = true;
+        
+        const rotateHandle = new paper.Path.Circle(rotateHandlePos, 6);
+        rotateHandle.fillColor = '#3b82f6';
+        rotateHandle.data = { type: 'rotate', isTool: true };
+
+        this.drawLayer.activate();
     }
 
     updateUI() {
         this.view.update();
-        const event = new CustomEvent('selectionChanged', { 
-            detail: { 
-                item: this.selectedItem,
-                items: this.selectedItems 
-            } 
-        });
-        window.dispatchEvent(event);
+        window.dispatchEvent(new CustomEvent('selectionChanged', { detail: { items: this.selectedItems } }));
     }
 
     deleteSelectedItem() {
         if (this.selectedItems.length > 0) {
-            for (const item of this.selectedItems) {
-                item.remove();
-            }
+            this.selectedItems.forEach(item => item.remove());
             this.setSelected(null);
             this.saveHistory();
-            this.view.update();
         }
+    }
+
+    duplicateSelectedItems() {
+        if (this.selectedItems.length === 0) return;
+        const clones = this.selectedItems.map(item => {
+            const clone = item.clone();
+            clone.position = clone.position.add(new paper.Point(20, 20));
+            return clone;
+        });
+        this.setSelected(clones);
+        this.saveHistory();
     }
 
     groupSelectedItems() {
         if (this.selectedItems.length < 2) return;
-
         const group = new paper.Group(this.selectedItems);
         this.setSelected(group);
         this.saveHistory();
@@ -409,47 +465,35 @@ export class SvgEditor {
     ungroupSelectedItems() {
         const groups = this.selectedItems.filter(item => item instanceof paper.Group);
         if (groups.length === 0) return;
-
         const newSelection = [];
         for (const group of groups) {
-            const children = Array.from(group.children);
-            for (const child of children) {
-                if (child.clipMask) {
-                    // Destroy the clipping mask when breaking the group apart
-                    // This prevents the original SVG's viewBox from clipping the entire canvas
-                    child.remove();
-                } else {
-                    // Explicitly move to activeLayer to break out of original SVG structure
-                    this.project.activeLayer.addChild(child);
+            Array.from(group.children).forEach(child => {
+                if (child.clipMask) child.remove();
+                else {
+                    this.drawLayer.addChild(child);
                     newSelection.push(child);
                 }
-            }
-            // Remove the now-empty group container
+            });
             group.remove();
         }
-
         this.setSelected(newSelection);
         this.saveHistory();
     }
 
     exportSVG(fileName = 'canvas-export.svg') {
-        const svg = this.getSVGString();
-        this._downloadSVG(svg, fileName);
+        this._downloadSVG(this.getSVGString(), fileName);
     }
 
     downloadSelectedSVG(fileName = 'selection-export.svg') {
         if (this.selectedItems.length === 0) return;
-        const svg = this.getSelectedSVGString();
-        this._downloadSVG(svg, fileName);
+        this._downloadSVG(this.getSelectedSVGString(), fileName);
     }
 
     _downloadSVG(svgContent, fileName) {
         const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
         const url = URL.createObjectURL(blob);
-        
         const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
+        link.href = url; link.download = fileName;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -459,132 +503,104 @@ export class SvgEditor {
     _createCleanRoot(width, height) {
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-        const w = Math.round(width);
-        const h = Math.round(height);
+        const w = Math.round(width), h = Math.round(height);
         svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
-        svg.setAttribute('width', w);
-        svg.setAttribute('height', h);
+        svg.setAttribute('width', w); svg.setAttribute('height', h);
         return svg;
     }
 
     _sanitizeElement(el) {
         if (!el || el.nodeType !== 1) return el;
-
-        // 1. Remove clipping and Paper.js attributes
         el.removeAttribute('clip-path');
-        if (el.id && (el.id.startsWith('clip-') || el.id.startsWith('paper-'))) {
-            el.removeAttribute('id');
-        }
-
-        // 2. Strip verbose default attributes
-        const defaults = {
-            'fill-rule': 'nonzero',
-            'stroke-linecap': 'butt',
-            'stroke-linejoin': 'miter',
-            'stroke-miterlimit': '10',
-            'stroke-dasharray': '',
-            'stroke-dashoffset': '0',
-            'font-family': 'none',
-            'font-weight': 'none',
-            'font-size': 'none',
-            'text-anchor': 'none',
-            'mix-blend-mode': 'normal',
-            'fill': 'none',
-            'stroke': 'none'
-        };
-
+        if (el.id && (el.id.startsWith('clip-') || el.id.startsWith('paper-'))) el.removeAttribute('id');
+        const defaults = { 'fill-rule': 'nonzero', 'stroke-linecap': 'butt', 'stroke-linejoin': 'miter', 'stroke-miterlimit': '10', 'font-family': 'none', 'font-weight': 'none', 'font-size': 'none', 'text-anchor': 'none', 'mix-blend-mode': 'normal', 'fill': 'none', 'stroke': 'none' };
         for (const [attr, defaultValue] of Object.entries(defaults)) {
-            const val = el.getAttribute(attr);
-            if (val === defaultValue || (attr === 'stroke-dasharray' && val === '')) {
-                el.removeAttribute(attr);
-            }
+            if (el.getAttribute(attr) === defaultValue) el.removeAttribute(attr);
         }
-
-        if (el.getAttribute('style') === 'mix-blend-mode: normal') {
-            el.removeAttribute('style');
-        }
-
-        // 3. Process children recursively
-        const children = Array.from(el.childNodes);
-        for (const child of children) {
+        if (el.getAttribute('style') === 'mix-blend-mode: normal') el.removeAttribute('style');
+        Array.from(el.childNodes).forEach(child => {
             if (child.nodeType === 1) {
                 const tag = child.tagName.toLowerCase();
-                if (tag === 'defs' || tag === 'clippath') {
-                    el.removeChild(child);
-                } else {
-                    this._sanitizeElement(child);
-                }
+                if (tag === 'defs' || tag === 'clippath') el.removeChild(child);
+                else this._sanitizeElement(child);
             }
-        }
-
+        });
         return el;
     }
 
     _flattenRedundantContainers(parent) {
         if (!parent || parent.nodeType !== 1) return;
-
-        const children = Array.from(parent.childNodes);
-        for (const child of children) {
-            if (child.nodeType !== 1) continue;
-
-            // First, recurse to handle deeper levels
+        Array.from(parent.childNodes).forEach(child => {
+            if (child.nodeType !== 1) return;
             this._flattenRedundantContainers(child);
-
             const tag = child.tagName.toLowerCase();
             if (tag === 'g' || tag === 'svg') {
                 const significantAttrs = ['fill', 'stroke', 'stroke-width', 'opacity', 'transform', 'filter', 'mask'];
-                const hasSignificantAttr = Array.from(child.attributes).some(attr => 
-                    significantAttrs.includes(attr.name.toLowerCase())
-                );
-
-                // If it's just a generic container, move its children up and remove it
-                if (!hasSignificantAttr) {
-                    while (child.firstChild) {
-                        parent.insertBefore(child.firstChild, child);
-                    }
+                if (!Array.from(child.attributes).some(attr => significantAttrs.includes(attr.name.toLowerCase()))) {
+                    while (child.firstChild) parent.insertBefore(child.firstChild, child);
                     parent.removeChild(child);
                 }
             }
-        }
+        });
     }
 
     getSVGString() {
         const viewSize = this.view.viewSize;
         const rootSvg = this._createCleanRoot(viewSize.width, viewSize.height);
-
-        this.project.activeLayer.children.forEach(item => {
+        this.drawLayer.children.forEach(item => {
             if (item.data && item.data.isTool) return;
-            const el = item.exportSVG();
-            rootSvg.appendChild(this._sanitizeElement(el));
+            rootSvg.appendChild(this._sanitizeElement(item.exportSVG()));
         });
-
-        // Run flattening on the whole structure
         this._flattenRedundantContainers(rootSvg);
-
         return rootSvg.outerHTML;
     }
 
     getSelectedSVGString() {
         if (this.selectedItems.length === 0) return '';
-        
         const clones = this.selectedItems.map(item => item.clone({ insert: false }));
         const tempGroup = new paper.Group(clones);
-        
         const bounds = tempGroup.strokeBounds;
         tempGroup.translate(new paper.Point(-bounds.x, -bounds.y));
-        
         const rootSvg = this._createCleanRoot(bounds.width, bounds.height);
-
-        // Export the group to preserve the translation matrix applied above
-        const exportedGroup = tempGroup.exportSVG();
-        rootSvg.appendChild(this._sanitizeElement(exportedGroup));
-        
-        // Run flattening on the whole structure
+        rootSvg.appendChild(this._sanitizeElement(tempGroup.exportSVG()));
         this._flattenRedundantContainers(rootSvg);
-
         const result = rootSvg.outerHTML;
         tempGroup.remove();
-        
         return result;
+    }
+
+    importSVG(data) {
+        return new Promise((resolve, reject) => {
+            if (!data) return reject(new Error('No data provided'));
+            let svgString = data;
+            try {
+                if (typeof data === 'string') {
+                    const trimmedData = data.trim();
+                    svgString = (!trimmedData.toLowerCase().startsWith('<svg') && !trimmedData.toLowerCase().startsWith('<?xml')) ? `<svg xmlns="http://www.w3.org/2000/svg">${trimmedData}</svg>` : trimmedData;
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(svgString, 'image/svg+xml');
+                    if (doc.querySelector('parsererror')) console.error('SVG Parsing Error');
+                    else {
+                        doc.querySelectorAll('rect').forEach(rect => {
+                            const rx = rect.getAttribute('rx'), ry = rect.getAttribute('ry');
+                            if (rx && !ry) rect.setAttribute('ry', rx); else if (ry && !rx) rect.setAttribute('rx', ry);
+                        });
+                        svgString = new XMLSerializer().serializeToString(doc);
+                    }
+                }
+            } catch (e) { svgString = data; }
+            this.project.importSVG(svgString, {
+                expandShapes: true, insert: true,
+                onLoad: (item) => {
+                    if (!item) return reject(new Error('Import failed'));
+                    this.drawLayer.addChild(item);
+                    item.position = this.view.center;
+                    this.setSelected(item);
+                    this.saveHistory();
+                    resolve(item);
+                },
+                onError: (error) => reject(error)
+            });
+        });
     }
 }
