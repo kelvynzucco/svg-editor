@@ -70,20 +70,32 @@ const sWidth = document.getElementById('stroke-width');
 
 const pContainer = document.getElementById('picker-container');
 
+// PREEMPTIVE COMMIT LOGIC
+// Force-commit current picker color before starting other actions
+const forceCommitPendingStyle = () => {
+    if (!pContainer.classList.contains('hidden') && activePickerType) {
+        const type = activePickerType === 'fill' ? 'fillColor' : 'strokeColor';
+        const finalHex = sharedPicker.color.hex.substring(0, 7);
+        editor.applyStyle(type, finalHex, true); // Atomic history snapshot
+        pContainer.classList.add('hidden');
+        activePickerType = null;
+    }
+};
+
+// Listen for tool start in main
+window.addEventListener('appMouseDown', forceCommitPendingStyle);
+
 // Shared Picker Logic
-let activePickerType = null; // 'fill' or 'stroke'
+let activePickerType = null;
 
 const sharedPicker = new Picker({
     parent: pContainer,
-    popup: false, // We handle visibility manually
+    popup: false,
     alpha: false,
     editor: true,
     editorFormat: 'hex',
     onDone: (color) => {
-        const type = activePickerType === 'fill' ? 'fillColor' : 'strokeColor';
-        editor.applyStyle(type, color.hex.substring(0, 7), true);
-        pContainer.classList.add('hidden');
-        activePickerType = null;
+        forceCommitPendingStyle();
     }
 });
 
@@ -102,61 +114,48 @@ sharedPicker.onChange = (color) => {
 };
 
 const openPicker = (e, type) => {
+    // Commit any other open picker first
+    if (activePickerType && activePickerType !== type) forceCommitPendingStyle();
+    
     e.stopPropagation();
     activePickerType = type;
-    
-    // Get button position
     const rect = e.target.getBoundingClientRect();
     pContainer.style.top = `${rect.top}px`;
     pContainer.style.left = `${rect.right + 10}px`;
-    
-    // Set current color
     const style = editor.getSelectionStyle();
     const currentCol = type === 'fill' ? style?.fillColor : style?.strokeColor;
     sharedPicker.setColor(currentCol || '#000000', true);
-    
     pContainer.classList.remove('hidden');
 };
 
 fSwatch.addEventListener('click', (e) => openPicker(e, 'fill'));
 sSwatch.addEventListener('click', (e) => openPicker(e, 'stroke'));
 
-// Close picker when clicking outside
+// Global click outside to commit and close
 window.addEventListener('mousedown', (e) => {
     if (pContainer && !pContainer.contains(e.target) && !fSwatch.contains(e.target) && !sSwatch.contains(e.target)) {
-        pContainer.classList.add('hidden');
-        activePickerType = null;
+        forceCommitPendingStyle();
     }
 });
 
 // Handle Selection UI Updates
 window.addEventListener('selectionChanged', (e) => {
     const hasSelection = e.detail.items && e.detail.items.length > 0;
-    
-    Object.values(alignBtns).forEach(btn => {
-        if (btn) btn.disabled = !hasSelection;
-    });
-    
+    Object.values(alignBtns).forEach(btn => { if (btn) btn.disabled = !hasSelection; });
     if (hasSelection) {
         const style = editor.getSelectionStyle();
         if (style) {
             const hexF = style.fillColor.toUpperCase();
             fSwatch.style.backgroundColor = hexF;
             fHex.value = hexF;
-            
-            fOp.value = style.fillOpacity;
-            fOpVal.innerText = `${Math.round(style.fillOpacity)}%`;
-            
             const hexS = style.strokeColor.toUpperCase();
             sSwatch.style.backgroundColor = hexS;
             sHex.value = hexS;
-            
+            fOp.value = style.fillOpacity;
+            fOpVal.innerText = `${Math.round(style.fillOpacity)}%`;
             sOp.value = style.strokeOpacity;
             sOpVal.innerText = `${Math.round(style.strokeOpacity)}%`;
-            
             sWidth.value = style.strokeWidth;
-
-            // Update shared picker if it's open
             if (!pContainer.classList.contains('hidden') && activePickerType) {
                 const currentCol = activePickerType === 'fill' ? hexF : hexS;
                 sharedPicker.setColor(currentCol, true);
@@ -194,7 +193,7 @@ sHex.addEventListener('change', (e) => {
     if (/^#[0-9A-F]{6}$/i.test(val)) editor.applyStyle('strokeColor', val, true);
 });
 
-// Opacity Handlers
+// Opacity & Width Handlers
 fOp.addEventListener('input', (e) => {
     const val = e.target.value / 100;
     fOpVal.innerText = `${e.target.value}%`;
@@ -214,75 +213,30 @@ sWidth.addEventListener('change', (e) => editor.applyStyle('strokeWidth', e.targ
 
 // Keyboard Shortcuts
 window.addEventListener('keydown', (e) => {
-    const isTextInput = (e.target.tagName === 'INPUT' && (e.target.type === 'text' || e.target.type === 'number')) || 
-                        e.target.tagName === 'TEXTAREA';
-    
+    const isTextInput = (e.target.tagName === 'INPUT' && (e.target.type === 'text' || e.target.type === 'number')) || e.target.tagName === 'TEXTAREA';
     if (isTextInput) {
         const isAppShortcut = (e.ctrlKey || e.metaKey) && ['g', 'backspace'].includes(e.key.toLowerCase());
         if (!isAppShortcut) return;
     }
-
     if ((e.key === 'Delete' || e.key === 'Backspace') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
         editor.deleteSelectedItem();
     }
-
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-        e.preventDefault();
-        editor.undo();
-    }
-
-    if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
-        e.preventDefault();
-        editor.redo();
-    }
-
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
-        e.preventDefault();
-        editor.groupSelectedItems();
-    }
-
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Backspace') {
-        e.preventDefault();
-        editor.ungroupSelectedItems();
-    }
-
-    if (e.key === '[') {
-        editor.sendToBackSelected();
-    }
-
-    if (e.key === ']') {
-        editor.bringToFrontSelected();
-    }
-
-    if (e.shiftKey && e.key.toUpperCase() === 'H') {
-        flip(editor.selectedItems, 'h');
-        editor.saveHistory();
-    }
-
-    if (e.shiftKey && e.key.toUpperCase() === 'V') {
-        flip(editor.selectedItems, 'v');
-        editor.saveHistory();
-    }
-
-    if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-        copySelectedToClipboard();
-    }
-
-    if ((e.ctrlKey || e.metaKey) && e.key === 'x') {
-        copySelectedToClipboard().then(() => {
-            editor.deleteSelectedItem();
-        });
-    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); forceCommitPendingStyle(); editor.undo(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); forceCommitPendingStyle(); editor.redo(); }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') { e.preventDefault(); editor.groupSelectedItems(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Backspace') { e.preventDefault(); editor.ungroupSelectedItems(); }
+    if (e.key === '[') editor.sendToBackSelected();
+    if (e.key === ']') editor.bringToFrontSelected();
+    if (e.shiftKey && e.key.toUpperCase() === 'H') { flip(editor.selectedItems, 'h'); editor.saveHistory(); }
+    if (e.shiftKey && e.key.toUpperCase() === 'V') { flip(editor.selectedItems, 'v'); editor.saveHistory(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'c') copySelectedToClipboard();
+    if ((e.ctrlKey || e.metaKey) && e.key === 'x') copySelectedToClipboard().then(() => editor.deleteSelectedItem());
 });
 
 async function copySelectedToClipboard() {
     if (editor.selectedItem) {
         const svgCode = editor.getSelectedSVGString();
-        try {
-            await navigator.clipboard.writeText(svgCode);
-        } catch (err) {
-            console.error('Failed to copy to clipboard:', err);
-        }
+        try { await navigator.clipboard.writeText(svgCode); } catch (err) { console.error('Failed to copy to clipboard:', err); }
     }
 }
 
@@ -329,16 +283,12 @@ editor.canvas.addEventListener('contextmenu', (e) => {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     const point = editor.view.viewToProject(new paper.Point(x, y));
-    const hitResult = editor.project.hitTest(point, {
-        segments: true, stroke: true, fill: true, tolerance: 10, curves: true
-    });
-
+    const hitResult = editor.project.hitTest(point, { segments: true, stroke: true, fill: true, tolerance: 10, curves: true });
     if (hitResult && hitResult.item) {
         let item = hitResult.item;
         while (item.parent && item.parent !== editor.drawLayer) item = item.parent;
         if (!item.selected) editor.setSelected(item);
     }
-
     if (editor.selectedItem) {
         const hasGroup = editor.selectedItems.some(item => item instanceof paper.Group);
         hasGroup ? ctxUngroupBtn.classList.remove('hidden') : ctxUngroupBtn.classList.add('hidden');
@@ -348,14 +298,9 @@ editor.canvas.addEventListener('contextmenu', (e) => {
     }
 });
 
-window.addEventListener('click', () => {
-    contextMenu.classList.add('hidden');
-});
+window.addEventListener('click', () => { contextMenu.classList.add('hidden'); });
 
-ctxDeleteBtn.addEventListener('click', () => {
-    editor.deleteSelectedItem();
-    contextMenu.classList.add('hidden');
-});
+ctxDeleteBtn.addEventListener('click', () => { editor.deleteSelectedItem(); contextMenu.classList.add('hidden'); });
 
 ctxCopyBtn.addEventListener('click', () => {
     if (editor.selectedItem) {
@@ -369,103 +314,39 @@ ctxCopyBtn.addEventListener('click', () => {
     contextMenu.classList.add('hidden');
 });
 
-ctxDownloadBtn.addEventListener('click', () => {
-    editor.downloadSelectedSVG();
-    contextMenu.classList.add('hidden');
-});
+ctxDownloadBtn.addEventListener('click', () => { editor.downloadSelectedSVG(); contextMenu.classList.add('hidden'); });
+ctxDuplicateBtn.addEventListener('click', () => { editor.duplicateSelectedItems(); contextMenu.classList.add('hidden'); });
+ctxFlipHBtn.addEventListener('click', () => { flip(editor.selectedItems, 'h'); editor.saveHistory(); contextMenu.classList.add('hidden'); });
+ctxFlipVBtn.addEventListener('click', () => { flip(editor.selectedItems, 'v'); editor.saveHistory(); contextMenu.classList.add('hidden'); });
+ctxFrontBtn.addEventListener('click', () => { editor.bringToFrontSelected(); contextMenu.classList.add('hidden'); });
+ctxBackBtn.addEventListener('click', () => { editor.sendToBackSelected(); contextMenu.classList.add('hidden'); });
+ctxGroupBtn.addEventListener('click', () => { editor.groupSelectedItems(); contextMenu.classList.add('hidden'); });
+ctxUngroupBtn.addEventListener('click', () => { editor.ungroupSelectedItems(); contextMenu.classList.add('hidden'); });
 
-ctxDuplicateBtn.addEventListener('click', () => {
-    editor.duplicateSelectedItems();
-    contextMenu.classList.add('hidden');
-});
-
-ctxFlipHBtn.addEventListener('click', () => {
-    flip(editor.selectedItems, 'h');
-    editor.saveHistory();
-    contextMenu.classList.add('hidden');
-});
-
-ctxFlipVBtn.addEventListener('click', () => {
-    flip(editor.selectedItems, 'v');
-    editor.saveHistory();
-    contextMenu.classList.add('hidden');
-});
-
-ctxFrontBtn.addEventListener('click', () => {
-    editor.bringToFrontSelected();
-    contextMenu.classList.add('hidden');
-});
-
-ctxBackBtn.addEventListener('click', () => {
-    editor.sendToBackSelected();
-    contextMenu.classList.add('hidden');
-});
-
-ctxGroupBtn.addEventListener('click', () => {
-    editor.groupSelectedItems();
-    contextMenu.classList.add('hidden');
-});
-
-ctxUngroupBtn.addEventListener('click', () => {
-    editor.ungroupSelectedItems();
-    contextMenu.classList.add('hidden');
-});
-
-// Import Handlers
-importFileBtn.addEventListener('click', () => {
-    importFileInput.click();
-});
-
+// Header Handlers
+importFileBtn.addEventListener('click', () => importFileInput.click());
 importFileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
-        editor.importSVG(ev.target.result).catch(err => alert('Error: ' + err));
-    };
+    reader.onload = (ev) => editor.importSVG(ev.target.result).catch(err => alert('Error: ' + err));
     reader.readAsText(file);
 });
-
-importCodeBtn.addEventListener('click', () => {
-    codeModal.classList.remove('hidden');
-});
-
-closeModalBtn.addEventListener('click', () => {
-    codeModal.classList.add('hidden');
-});
-
+importCodeBtn.addEventListener('click', () => codeModal.classList.remove('hidden'));
+closeModalBtn.addEventListener('click', () => codeModal.classList.add('hidden'));
 confirmCodeBtn.addEventListener('click', () => {
     const code = svgCodeInput.value.trim();
-    if (code) {
-        editor.importSVG(code).then(() => {
-            codeModal.classList.add('hidden');
-            svgCodeInput.value = '';
-        }).catch(err => alert('Invalid SVG code: ' + err));
-    }
+    if (code) editor.importSVG(code).then(() => { codeModal.classList.add('hidden'); svgCodeInput.value = ''; }).catch(err => alert('Invalid SVG code: ' + err));
 });
 
 // Alignment Handlers
 Object.entries(alignBtns).forEach(([pos, btn]) => {
-    if (btn) {
-        btn.addEventListener('click', () => {
-            align(editor.selectedItems, pos, editor.project.view);
-            editor.updateTransformUI(); // Refresh handles position
-            editor.saveHistory();
-        });
-    }
+    if (btn) btn.addEventListener('click', () => { align(editor.selectedItems, pos, editor.project.view); editor.updateTransformUI(); editor.saveHistory(); });
 });
 
 // Export Handlers
-exportFileBtn.addEventListener('click', () => {
-    filenameModal.classList.remove('hidden');
-    filenameInput.focus();
-    filenameInput.select();
-});
-
-closeFilenameModalBtn.addEventListener('click', () => {
-    filenameModal.classList.add('hidden');
-});
-
+exportFileBtn.addEventListener('click', () => { filenameModal.classList.remove('hidden'); filenameInput.focus(); filenameInput.select(); });
+closeFilenameModalBtn.addEventListener('click', () => filenameModal.classList.add('hidden'));
 confirmFilenameBtn.addEventListener('click', () => {
     let fileName = filenameInput.value.trim();
     if (!fileName) fileName = 'my-design';
@@ -480,23 +361,11 @@ copyCodeBtn.addEventListener('click', () => {
         const originalText = copyCodeBtn.innerText;
         copyCodeBtn.innerText = 'Canvas Copied!';
         copyCodeBtn.classList.replace('bg-indigo-600', 'bg-green-600');
-        setTimeout(() => {
-            copyCodeBtn.innerText = originalText;
-            copyCodeBtn.classList.replace('bg-green-600', 'bg-indigo-600');
-        }, 2000);
+        setTimeout(() => { copyCodeBtn.innerText = originalText; copyCodeBtn.classList.replace('bg-green-600', 'bg-indigo-600'); }, 2000);
     }).catch(err => alert('Failed to copy: ' + err));
 });
 
 // Clear Canvas Handlers
-clearCanvasBtn.addEventListener('click', () => {
-    confirmModal.classList.remove('hidden');
-});
-
-cancelClearBtn.addEventListener('click', () => {
-    confirmModal.classList.add('hidden');
-});
-
-confirmClearBtn.addEventListener('click', () => {
-    editor.clearCanvas();
-    confirmModal.classList.add('hidden');
-});
+clearCanvasBtn.addEventListener('click', () => confirmModal.classList.remove('hidden'));
+cancelClearBtn.addEventListener('click', () => confirmModal.classList.add('hidden'));
+confirmClearBtn.addEventListener('click', () => { editor.clearCanvas(); confirmModal.classList.add('hidden'); });

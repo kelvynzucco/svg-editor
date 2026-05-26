@@ -13,23 +13,15 @@ export class SvgEditor {
         this.selectedItems = [];
         
         this.history = [];
-        this.redoStack = [];
-        this.maxHistory = 10;
+        this.historyIndex = -1;
+        this.maxHistory = 15;
         this.isRestoring = false;
 
-        // UI Layer for Transform Handles
-        this.uiLayer = new paper.Layer();
-        this.uiLayer.name = 'ui-layer';
+        this.uiLayer = new paper.Layer({ name: 'ui-layer' });
         this.uiLayer.data.isTool = true;
 
-        // Create/Ensure a drawing layer
-        if (this.project.layers.length < 2) {
-            const drawLayer = new paper.Layer();
-            drawLayer.name = 'draw-layer';
-            drawLayer.activate();
-        } else {
-            this.project.layers[0].activate();
-        }
+        this.drawLayer = new paper.Layer({ name: 'draw-layer' });
+        this.drawLayer.activate();
 
         this.initTools();
         this.resize();
@@ -39,54 +31,44 @@ export class SvgEditor {
         this.saveHistory();
     }
 
-    get drawLayer() {
-        return this.project.layers.find(l => l.name === 'draw-layer') || this.project.layers[0];
+    // Generates a simple unique ID for tracking items across JSON import/export
+    _generateUID() {
+        return Math.random().toString(36).substring(2, 9);
     }
 
-    _getCleanJSON() {
-        // 1. Temporarily remove UI layer
+    // Recursively ensures all items in a project have a persistent UID
+    _ensureUIDs(parent = this.drawLayer) {
+        if (!parent || !parent.children) return;
+        parent.children.forEach(item => {
+            if (!item.data.uid) {
+                item.data.uid = this._generateUID();
+            }
+            if (item.children) this._ensureUIDs(item);
+        });
+    }
+
+    _getSnapshot() {
+        // Tag everything before snapshot
+        this._ensureUIDs();
+
         const ui = this.uiLayer;
         if (ui) ui.remove();
         
-        // 2. Temporarily deselect all to get a "pure content" snapshot
-        // This prevents selection changes from creating history steps
-        const selected = this.selectedItems.map(item => item);
+        const selected = [...this.selectedItems];
         this.project.deselectAll();
         
         const json = this.project.exportJSON();
         
-        // 3. Restore selection state
         selected.forEach(item => item.selected = true);
+        if (ui) this.project.addLayer(ui);
+        this.drawLayer.activate();
         
-        // 4. Restore UI layer
-        if (ui) {
-            this.project.addLayer(ui);
-            this.drawLayer.activate();
-        }
         return json;
     }
 
     saveToLocalStorage() {
         if (this.isRestoring) return;
-        localStorage.setItem('svg-editor-work', this._getCleanJSON());
-    }
-
-    _sanitizeLayers() {
-        this.project.layers.filter(l => l.name === 'ui-layer' || (l.data && l.data.isTool)).forEach(l => l.remove());
-        let drawLayer = this.project.layers.find(l => l.name === 'draw-layer');
-        if (!drawLayer) {
-            drawLayer = new paper.Layer({ name: 'draw-layer' });
-            this.project.layers.forEach(layer => {
-                if (layer !== drawLayer) {
-                    drawLayer.addChildren(Array.from(layer.children));
-                    layer.remove();
-                }
-            });
-        }
-        this.uiLayer = new paper.Layer({ name: 'ui-layer' });
-        this.uiLayer.data.isTool = true;
-        drawLayer.activate();
-        return drawLayer;
+        localStorage.setItem('svg-editor-work', this._getSnapshot());
     }
 
     loadFromLocalStorage() {
@@ -96,108 +78,107 @@ export class SvgEditor {
                 this.isRestoring = true;
                 this.project.clear();
                 this.project.importJSON(savedWork);
-                this._sanitizeLayers();
+                this._restoreLayers();
                 this.isRestoring = false;
             } catch (err) {
-                console.error('Failed to load saved work:', err);
+                console.error('Failed to load:', err);
                 this.isRestoring = false;
             }
         }
     }
 
-    clearCanvas() {
-        this.drawLayer.clear();
-        localStorage.removeItem('svg-editor-work');
-        this.history = [];
-        this.redoStack = [];
-        this.setSelected(null);
-        this.saveHistory();
+    _restoreLayers() {
+        this.project.layers.filter(l => l.name === 'ui-layer' || (l.data && l.data.isTool)).forEach(l => l.remove());
+        
+        this.drawLayer = this.project.layers.find(l => l.name === 'draw-layer');
+        if (!this.drawLayer) {
+            this.drawLayer = new paper.Layer({ name: 'draw-layer' });
+            this.project.layers.forEach(l => {
+                if (l !== this.drawLayer) {
+                    this.drawLayer.addChildren(Array.from(l.children));
+                    l.remove();
+                }
+            });
+        }
+        
+        this.uiLayer = new paper.Layer({ name: 'ui-layer' });
+        this.uiLayer.data.isTool = true;
+        this.drawLayer.activate();
     }
 
     saveHistory() {
         if (this.isRestoring) return;
         
-        const jsonState = this._getCleanJSON();
-        
-        // ALWAYS update localStorage so a page refresh captures the latest state
-        localStorage.setItem('svg-editor-work', jsonState);
+        const state = this._getSnapshot();
+        localStorage.setItem('svg-editor-work', state);
 
-        // For the history stack, only save if CONTENT has changed
-        if (this.history.length > 0 && this.history[this.history.length - 1] === jsonState) {
-            return;
+        if (this.historyIndex >= 0 && this.history[this.historyIndex] === state) return;
+
+        if (this.historyIndex < this.history.length - 1) {
+            this.history = this.history.slice(0, this.historyIndex + 1);
         }
-        
-        this.history.push(jsonState);
-        this.redoStack = []; // Clear redo stack on new unique action
-        
+
+        this.history.push(state);
+        this.historyIndex++;
+
         if (this.history.length > this.maxHistory) {
             this.history.shift();
+            this.historyIndex--;
         }
     }
 
     undo() {
-        if (this.history.length <= 1) return; 
-        
+        if (this.historyIndex <= 0) return;
         this.isRestoring = true;
-        if (this.tool) this.tool.isDragging = false;
-        this.canvas.style.cursor = 'default';
-
-        const selectedIds = this.selectedItems.map(item => item.id);
-        
-        const currentState = this.history.pop();
-        this.redoStack.push(currentState);
-        
-        const prevState = this.history[this.history.length - 1];
-        
-        this.project.clear();
-        this.project.importJSON(prevState);
-        
-        const drawLayer = this._sanitizeLayers();
-        
-        this.selectedItems = [];
-        if (selectedIds.length > 0) {
-            drawLayer.children.forEach(item => {
-                if (selectedIds.includes(item.id)) {
-                    item.selected = true;
-                    this.selectedItems.push(item);
-                }
-            });
-        }
-
-        this.updateTransformUI();
-        this.updateUI();
-        localStorage.setItem('svg-editor-work', prevState);
+        this.historyIndex--;
+        this._applyState(this.history[this.historyIndex]);
         this.isRestoring = false;
     }
 
     redo() {
-        if (this.redoStack.length === 0) return;
-
+        if (this.historyIndex >= this.history.length - 1) return;
         this.isRestoring = true;
-        const nextState = this.redoStack.pop();
-        this.history.push(nextState);
+        this.historyIndex++;
+        this._applyState(this.history[this.historyIndex]);
+        this.isRestoring = false;
+    }
 
-        const selectedIds = this.selectedItems.map(item => item.id);
-
-        this.project.clear();
-        this.project.importJSON(nextState);
+    _applyState(json) {
+        if (this.tool) this.tool.isDragging = false;
         
-        const drawLayer = this._sanitizeLayers();
-
+        // Remember selection by persistent UIDs
+        const selectedUIDs = this.selectedItems.map(i => i.data.uid).filter(Boolean);
+        
+        this.project.clear();
+        this.project.importJSON(json);
+        this._restoreLayers();
+        
+        // Re-sync selection using UIDs
         this.selectedItems = [];
-        if (selectedIds.length > 0) {
-            drawLayer.children.forEach(item => {
-                if (selectedIds.includes(item.id)) {
-                    item.selected = true;
-                    this.selectedItems.push(item);
-                }
-            });
+        if (selectedUIDs.length > 0) {
+            const findAndSelect = (parent) => {
+                parent.children.forEach(item => {
+                    if (selectedUIDs.includes(item.data.uid)) {
+                        item.selected = true;
+                        this.selectedItems.push(item);
+                    }
+                    if (item.children) findAndSelect(item);
+                });
+            };
+            findAndSelect(this.drawLayer);
         }
 
         this.updateTransformUI();
         this.updateUI();
-        localStorage.setItem('svg-editor-work', nextState);
-        this.isRestoring = false;
+        localStorage.setItem('svg-editor-work', json);
+    }
+
+    clearCanvas() {
+        this.drawLayer.clear();
+        this.history = [];
+        this.historyIndex = -1;
+        this.setSelected(null);
+        this.saveHistory();
     }
 
     get selectedItem() {
@@ -235,6 +216,9 @@ export class SvgEditor {
             const point = event.point;
             hasDuplicatedOnDrag = false;
 
+            // Signal to main script to finish any pending style changes
+            window.dispatchEvent(new CustomEvent('appMouseDown'));
+
             const uiHit = this.uiLayer.hitTest(point, { tolerance: 10, fill: true, stroke: true });
             if (uiHit && uiHit.item && uiHit.item.data) {
                 handleType = uiHit.item.data.type;
@@ -260,7 +244,6 @@ export class SvgEditor {
                 } else {
                     if (!item.selected) this.setSelected(item);
                     isDragging = true;
-                    this.canvas.style.cursor = 'move';
                     this.uiLayer.visible = false;
                 }
                 return;
@@ -318,7 +301,11 @@ export class SvgEditor {
                 }
             } else if (isDragging) {
                 if (event.modifiers.alt && !hasDuplicatedOnDrag && this.selectedItems.length > 0) {
-                    const clones = this.selectedItems.map(item => item.clone());
+                    const clones = this.selectedItems.map(item => {
+                        const clone = item.clone();
+                        clone.data.uid = this._generateUID(); // Ensure clone gets its own UID
+                        return clone;
+                    });
                     this.setSelected(clones);
                     hasDuplicatedOnDrag = true;
                 }
@@ -447,6 +434,7 @@ export class SvgEditor {
         if (this.selectedItems.length === 0) return;
         const clones = this.selectedItems.map(item => {
             const clone = item.clone();
+            clone.data.uid = this._generateUID();
             clone.position = clone.position.add(new paper.Point(20, 20));
             return clone;
         });
@@ -457,6 +445,7 @@ export class SvgEditor {
     groupSelectedItems() {
         if (this.selectedItems.length < 2) return;
         const group = new paper.Group(this.selectedItems);
+        group.data.uid = this._generateUID();
         this.setSelected(group);
         this.saveHistory();
     }
@@ -526,8 +515,7 @@ export class SvgEditor {
         if (shouldSaveHistory) {
             this.saveHistory();
         } else {
-            // FORCE localStorage update on every minor change (input dragging)
-            localStorage.setItem('svg-editor-work', this._getCleanJSON());
+            localStorage.setItem('svg-editor-work', this._getSnapshot());
         }
         
         this.view.update();
