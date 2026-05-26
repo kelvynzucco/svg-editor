@@ -4,17 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Traço - Minimal SVG editor</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body class="h-screen flex flex-col bg-gray-100 text-gray-900 font-sans">
     <header
-      class="bg-white border-b px-6 py-3 flex items-center justify-between shadow-sm z-10"
+      class="bg-white border-b border-black/10 px-6 py-3 flex items-center justify-between z-10"
     >
       <div class="flex items-center gap-3">
         <div class="bg-blue-600 p-2 rounded-lg text-white">
-          <svg
+          <!-- <svg
             xmlns="http://www.w3.org/2000/svg"
             class="w-5 h-5"
             fill="none"
@@ -27,10 +30,10 @@
               stroke-width="2"
               d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
             />
-          </svg>
+          </svg> -->
         </div>
-        <h1 class="font-bold text-lg tracking-tight">
-          Traço <span class="text-blue-600">Editor</span>
+        <h1 class="font-black text-lg tracking-tight">
+          TRAÇO <span class="font-medium">- Minimal SVG Editor</span>
         </h1>
       </div>
       <div class="flex items-center gap-2">
@@ -44,9 +47,9 @@
           id="import-code-btn"
           class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition text-sm font-medium"
         >
-          Import Code
+          Import &lt;code/&gt;
         </button>
-        <input type="file" id="import-file" class="hidden" accept=".svg">
+        <input type="file" id="import-file" class="hidden" accept=".svg" />
       </div>
     </header>
 
@@ -56,15 +59,12 @@
         id="canvas-container"
         class="relative flex-1 bg-gray-200 p-8 overflow-hidden"
       >
-        <canvas
-          id="editor-canvas"
-          class="bg-white shadow-lg mx-auto block"
-        ></canvas>
+        <canvas id="editor-canvas" class="bg-white mx-auto block"></canvas>
       </main>
 
       <!-- Sidebar / Tools -->
       <aside
-        class="w-64 bg-white border-l p-6 flex flex-col gap-8 overflow-y-auto scrollbar-hide shadow-inner"
+        class="w-64 bg-white border-l border-black/10 p-6 flex flex-col gap-8 overflow-y-auto scrollbar-hide"
       >
         <section>
           <h2
@@ -125,46 +125,107 @@
           </div>
         </section>
 
-        <section class="border-t pt-4">
-          <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Style</h2>
-          
+        <section class="border-t pt-4 border-black/10">
+          <h2
+            class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3"
+          >
+            Style
+          </h2>
+
           <!-- Fill Controls -->
           <div class="mb-4">
-            <label class="block text-[10px] text-gray-400 uppercase mb-1">Fill</label>
+            <label class="block text-[10px] text-gray-400 uppercase mb-1"
+              >Fill</label
+            >
             <div class="flex items-center gap-2 mb-2">
-              <div id="fill-picker-swatch" class="w-8 h-8 rounded border border-gray-200 cursor-pointer shadow-sm relative" style="background-color: #000000"></div>
-              <input type="text" id="fill-hex-input" class="flex-1 bg-gray-50 border border-gray-100 rounded px-2 py-1.5 text-[10px] font-mono outline-none focus:border-blue-300 transition" placeholder="#000000" value="#000000">
+              <div
+                id="fill-picker-swatch"
+                class="w-8 h-8 rounded cursor-pointer relative"
+                style="background-color: #000000"
+              ></div>
+              <input
+                type="text"
+                id="fill-hex-input"
+                class="flex-1 bg-gray-50 border border-gray-100 rounded px-2 py-1.5 text-[10px] font-mono outline-none focus:border-blue-300 transition"
+                placeholder="#000000"
+                value="#000000"
+              />
             </div>
             <div class="flex items-center gap-2">
               <div class="flex-1">
-                <input type="range" id="fill-opacity" class="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="0" max="100" value="100">
+                <input
+                  type="range"
+                  id="fill-opacity"
+                  class="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  min="0"
+                  max="100"
+                  value="100"
+                />
               </div>
-              <span id="fill-opacity-val" class="text-[9px] text-gray-500 w-8 text-right font-medium">100%</span>
+              <span
+                id="fill-opacity-val"
+                class="text-[9px] text-gray-500 w-8 text-right font-medium"
+                >100%</span
+              >
             </div>
           </div>
 
           <!-- Stroke Controls -->
           <div class="mb-4">
-            <label class="block text-[10px] text-gray-400 uppercase mb-1">Stroke</label>
+            <label class="block text-[10px] text-gray-400 uppercase mb-1"
+              >Stroke</label
+            >
             <div class="flex items-center gap-2 mb-2">
-              <div id="stroke-picker-swatch" class="w-8 h-8 rounded border border-gray-200 cursor-pointer shadow-sm relative" style="background-color: #000000"></div>
-              <input type="text" id="stroke-hex-input" class="flex-1 bg-gray-50 border border-gray-100 rounded px-2 py-1.5 text-[10px] font-mono outline-none focus:border-blue-300 transition" placeholder="#000000" value="#000000">
+              <div
+                id="stroke-picker-swatch"
+                class="w-8 h-8 rounded cursor-pointer relative"
+                style="background-color: #000000"
+              ></div>
+              <input
+                type="text"
+                id="stroke-hex-input"
+                class="flex-1 bg-gray-50 border border-gray-100 rounded px-2 py-1.5 text-[10px] font-mono outline-none focus:border-blue-300 transition"
+                placeholder="#000000"
+                value="#000000"
+              />
             </div>
             <div class="flex items-center gap-2 mb-3">
               <div class="flex-1">
-                <input type="range" id="stroke-opacity" class="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="0" max="100" value="100">
+                <input
+                  type="range"
+                  id="stroke-opacity"
+                  class="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  min="0"
+                  max="100"
+                  value="100"
+                />
               </div>
-              <span id="stroke-opacity-val" class="text-[9px] text-gray-500 w-8 text-right font-medium">100%</span>
+              <span
+                id="stroke-opacity-val"
+                class="text-[9px] text-gray-500 w-8 text-right font-medium"
+                >100%</span
+              >
             </div>
-            
-            <div class="flex items-center justify-between bg-gray-50 p-2 rounded border border-gray-100">
-              <label class="text-[10px] text-gray-500 font-medium">Stroke Weight</label>
-              <input type="number" id="stroke-width" class="w-12 bg-transparent text-right outline-none text-xs font-mono" min="0" step="0.5" value="1">
+
+            <div
+              class="flex items-center justify-between bg-gray-50 p-2 rounded border border-gray-100"
+            >
+              <label class="text-[10px] text-gray-500 font-medium"
+                >Stroke Weight</label
+              >
+              <input
+                type="number"
+                id="stroke-width"
+                class="w-12 bg-transparent text-right outline-none text-xs font-mono"
+                min="0"
+                step="0.5"
+                value="1"
+              />
             </div>
           </div>
         </section>
 
-        <section class="mt-auto border-t pt-6">
+        <section class="mt-auto border-t pt-6 border-black/10">
           <h2
             class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3"
           >
@@ -181,7 +242,7 @@
               id="copy-code"
               class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded transition text-sm"
             >
-              Copy Canvas to Code
+              Copy Canvas to &lt;code/&gt;
             </button>
             <button
               id="clear-canvas"
@@ -199,12 +260,12 @@
       id="code-modal"
       class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50"
     >
-      <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6">
+      <div class="bg-white rounded-lg w-full max-w-2xl p-6">
         <h3 class="text-lg font-bold mb-4">Paste SVG Code</h3>
         <textarea
           id="svg-code-input"
           class="w-full h-64 p-3 border rounded font-mono text-sm mb-4"
-          placeholder="<svg ...>...</svg>"
+          placeholder="<svg>...</svg>"
         ></textarea>
         <div class="flex justify-end gap-3">
           <button
@@ -226,9 +287,9 @@
     <!-- Modal for Clear Confirmation (Hidden by default) -->
     <div
       id="confirm-modal"
-      class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-[70]"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-70"
     >
-      <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+      <div class="bg-white rounded-lg w-full max-w-md p-6">
         <h3 class="text-lg font-bold mb-2 text-red-600">Clear Canvas</h3>
         <p class="text-gray-600 mb-6">
           Are you sure you want to clear the canvas? All unsaved work will be
@@ -254,9 +315,9 @@
     <!-- Modal for Filename Input (Hidden by default) -->
     <div
       id="filename-modal"
-      class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-[80]"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-80"
     >
-      <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+      <div class="bg-white rounded-lg w-full max-w-md p-6">
         <h3 class="text-lg font-bold mb-4">Save SVG</h3>
         <div class="mb-4">
           <label
@@ -299,7 +360,7 @@
     <!-- Context Menu -->
     <div
       id="context-menu"
-      class="fixed hidden bg-white border border-gray-200 shadow-lg rounded-md py-1 z-60 min-w-[200px]"
+      class="fixed hidden overflow-hidden bg-white border border-gray-200 shadow-xl shadow-black/4 rounded-xl z-60 min-w-50"
     >
       <button
         id="ctx-copy"
@@ -312,7 +373,7 @@
         id="ctx-download"
         class="w-full flex justify-between items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition border-b border-gray-100"
       >
-        <span>Download .svg</span>
+        <span>Save to .svg</span>
       </button>
       <button
         id="ctx-duplicate"
@@ -373,6 +434,6 @@
     </div>
 
     <!-- Floating Picker Container -->
-    <div id="picker-container" class="fixed hidden z-[9999]"></div>
+    <div id="picker-container" class="fixed hidden z-9999"></div>
   </body>
 </html>
