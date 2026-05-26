@@ -210,6 +210,7 @@ export class SvgEditor {
         let hasDuplicatedOnDrag = false;
         let transformRef = null;
         let handleType = null;
+        let dragAppliedTranslation = new paper.Point(0, 0);
 
         this.tool.onMouseDown = (event) => {
             if (event.event.button !== 0) return;
@@ -244,6 +245,7 @@ export class SvgEditor {
                 } else {
                     if (!item.selected) this.setSelected(item);
                     isDragging = true;
+                    dragAppliedTranslation = new paper.Point(0, 0);
                     this.uiLayer.visible = false;
                 }
                 return;
@@ -252,6 +254,7 @@ export class SvgEditor {
             const hitSelectedBounds = this.selectedItems.some(item => item.strokeBounds.contains(point));
             if (hitSelectedBounds && !event.modifiers.shift) {
                 isDragging = true;
+                dragAppliedTranslation = new paper.Point(0, 0);
                 this.canvas.style.cursor = 'move';
                 this.uiLayer.visible = false;
                 return;
@@ -309,7 +312,21 @@ export class SvgEditor {
                     this.setSelected(clones);
                     hasDuplicatedOnDrag = true;
                 }
-                this.selectedItems.forEach(item => item.position = item.position.add(event.delta));
+
+                let desiredTranslation = event.point.subtract(event.downPoint);
+                
+                // Axis constraint when Shift is held
+                if (event.modifiers.shift) {
+                    if (Math.abs(desiredTranslation.x) > Math.abs(desiredTranslation.y)) {
+                        desiredTranslation.y = 0;
+                    } else {
+                        desiredTranslation.x = 0;
+                    }
+                }
+                
+                let deltaToApply = desiredTranslation.subtract(dragAppliedTranslation);
+                this.selectedItems.forEach(item => item.position = item.position.add(deltaToApply));
+                dragAppliedTranslation = desiredTranslation;
             } else if (startPoint) {
                 if (selectionRect) selectionRect.remove();
                 selectionRect = new paper.Path.Rectangle(startPoint, event.point);
