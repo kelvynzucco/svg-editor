@@ -1,65 +1,65 @@
 # Minimal SVG Editor 🎨
 
-Um editor de vetores (SVG) leve, modular e poderoso construído com **Paper.js**, **Tailwind CSS** e **Vite**. Projetado para ser simples de usar, mas altamente extensível.
+A lightweight, modular, and powerful vector (SVG) editor built with **Paper.js**, **Tailwind CSS**, and **Vite**. Designed to be simple to use yet highly extensible.
 
-## 🚀 Funcionalidades Atuais
+## 🚀 Current Features
 
-- **Ferramenta de Seleção (V):** Selecione, mova, rotacione e redimensione objetos com bounding boxes interativas.
-- **Seleção Direta (A):** Manipule pontos (segmentos) individuais de qualquer caminho.
-- **Conta-gotas (I):** Capture cores de preenchimento e contorno diretamente do canvas.
-- **Transformações Rápidas:**
-  - Espelhamento Horizontal (Shift + H) e Vertical (Shift + V).
-  - Alinhamento (Esquerda, Centro, Direita, Topo, Meio, Base) em relação ao Artboard.
-  - Ordenação (Trazer para Frente `]` / Enviar para Trás `[`).
-- **Gestão de Estilo:** Controle preciso de cores (Hex), opacidade e espessura do contorno.
-- **Importação/Exportação:**
-  - Importação de arquivos `.svg` ou código bruto.
-  - Exportação otimizada para `.svg` ou cópia rápida do código para o clipboard.
-- **Navegação Fluida:** Pan (Espaço + Drag) e Zoom (Ctrl + Scroll).
-- **Sistema de Histórico:** Desfazer (Ctrl+Z) e Refazer (Ctrl+Y/Shift+Z) completo.
+- **Selection Tool (V):** Select, move, rotate, and resize objects with interactive bounding boxes.
+- **Direct Selection Tool (A):** Manipulate individual points (segments) of any path.
+- **Eyedropper (I):** Capture fill and stroke colors directly from the canvas.
+- **Quick Transformations:**
+  - Horizontal Flip (Shift + H) and Vertical Flip (Shift + V).
+  - Alignment (Left, Center, Right, Top, Middle, Bottom) relative to the Artboard.
+  - Ordering (Bring to Front `]` / Send to Back `[`).
+- **Style Management:** Precise control over colors (Hex), opacity, and stroke width.
+- **Import/Export:**
+  - Import `.svg` files or raw SVG code.
+  - Optimized export to `.svg` or quick copy of code to clipboard.
+- **Smooth Navigation:** Pan (Space + Drag) and Zoom (Ctrl + Scroll).
+- **History System:** Full Undo (Ctrl+Z) and Redo (Ctrl+Y/Shift+Z).
 
-## 🛠️ Arquitetura & Modularidade
+## 🛠️ Architecture & Modularity
 
-O projeto foi refatorado recentemente para garantir escalabilidade:
+The project was recently refactored to ensure scalability:
 
-- **Biblioteca de Ícones (`src/ui/icons.js`):** Todos os ícones do sistema estão centralizados em um módulo JavaScript, facilitando a troca global de estilo e mantendo o HTML limpo.
-- **Ferramentas Modulares (`src/tools/`):** Cada ferramenta (Seleção, Transformação, etc) possui sua própria lógica isolada, facilitando a implementação de novos recursos (como Caneta ou Formas) sem afetar o núcleo do editor.
-- **Núcleo do Editor (`src/editor.js`):** Gerencia o estado do Paper.js, camadas, seleção global e o sistema de desfazer/refazer.
+- **Icon Library (`src/ui/icons.js`):** All system icons are centralized in a JavaScript module, facilitating global style changes and keeping the HTML clean.
+- **Modular Tools (`src/tools/`):** Each tool (Selection, Transformation, etc.) has its own isolated logic, making it easy to implement new features (like Pen or Shapes) without affecting the core editor.
+- **Editor Core (`src/editor.js`):** Manages the Paper.js state, layers, global selection, and the undo/redo system.
 
-## 📦 Instalação e Desenvolvimento
+## 📦 Installation and Development
 
-Certifique-se de ter o [Node.js](https://nodejs.org/) instalado.
+Make sure you have [Node.js](https://nodejs.org/) installed.
 
-1. Instale as dependências:
+1. Install dependencies:
    ```bash
    npm install
    ```
 
-2. Inicie o servidor de desenvolvimento:
+2. Start the development server:
    ```bash
    npm run dev
    ```
 
-3. Para gerar a versão de produção:
+3. Build for production:
    ```bash
    npm run build
    ```
 
-## ⌨️ Atalhos Rápidos
+## ⌨️ Quick Shortcuts
 
-| Tecla | Ação |
+| Key | Action |
 | :--- | :--- |
-| `V` | Ferramenta de Seleção |
-| `A` | Ferramenta de Seleção Direta |
-| `I` | Conta-gotas |
-| `Space + Drag` | Pan no Canvas |
+| `V` | Selection Tool |
+| `A` | Direct Selection Tool |
+| `I` | Eyedropper Tool |
+| `Space + Drag` | Pan Canvas |
 | `Ctrl + Scroll` | Zoom In / Out |
-| `Ctrl + Z` | Desfazer |
-| `Ctrl + Y` | Refazer |
-| `Del / Backspace` | Excluir seleção |
-| `]` / `[` | Trazer para frente / Enviar para trás |
-| `Shift + H/V` | Espelhar Horizontal/Vertical |
+| `Ctrl + Z` | Undo |
+| `Ctrl + Y` | Redo |
+| `Del / Backspace` | Delete selection |
+| `]` / `[` | Bring to front / Send to back |
+| `Shift + H/V` | Flip Horizontal/Vertical |
 
-## 📄 Licença
+## 📄 License
 
-Este projeto está sob a licença [MIT](LICENSE).
+This project is licensed under the [MIT](LICENSE) License.
