@@ -1,11 +1,15 @@
 import paper from 'paper';
+import { SelectionTool } from './tools/selection-tool';
+import { DirectSelectionTool } from './tools/direct-selection-tool';
+import { EyedropperTool } from './tools/eyedropper-tool';
 
 export class SvgEditor {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
         
-        paper.settings.handleSize = 6;
+        paper.settings.handleSize = 8;
         paper.settings.hitTolerance = 10;
+        paper.settings.selectedColor = new paper.Color('#3b82f6');
         
         paper.setup(this.canvas);
         this.project = paper.project;
@@ -26,10 +30,12 @@ export class SvgEditor {
         this.drawLayer = new paper.Layer({ name: 'draw-layer' });
         this.drawLayer.activate();
 
-        this.tools = {};
-        this.initSelectionTool();
-        this.initDirectSelectionTool();
-        this.initEyedropperTool();
+        // Initialize Modular Tools
+        this.tools = {
+            selection: new SelectionTool(this),
+            directSelection: new DirectSelectionTool(this),
+            eyedropper: new EyedropperTool(this)
+        };
         
         this.currentToolName = 'selection';
         this.tools.selection.activate();
@@ -238,8 +244,6 @@ export class SvgEditor {
     }
 
     _applyState(json) {
-        if (this.tools[this.currentToolName]) this.tools[this.currentToolName].isDragging = false;
-        
         // Remember selection by persistent UIDs
         const selectedUIDs = this.selectedItems.map(i => i.data.uid).filter(Boolean);
         
@@ -300,281 +304,6 @@ export class SvgEditor {
             this.view.viewSize = new paper.Size(width, height);
             this.view.update();
         }
-    }
-
-    initSelectionTool() {
-        this.tools.selection = new paper.Tool();
-        const tool = this.tools.selection;
-        let selectionRect = null;
-        let startPoint = null;
-        let isDragging = false;
-        let isRotating = false;
-        let isScaling = false;
-        let hasDuplicatedOnDrag = false;
-        let transformRef = null;
-        let handleType = null;
-        let dragAppliedTranslation = new paper.Point(0, 0);
-
-        tool.onMouseDown = (event) => {
-            if (event.event.button !== 0) return;
-            
-            // Blur any active text inputs when clicking the canvas
-            if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
-                document.activeElement.blur();
-            }
-
-            const point = event.point;
-            hasDuplicatedOnDrag = false;
-
-            // Signal to main script to finish any pending style changes
-            window.dispatchEvent(new CustomEvent('appMouseDown'));
-
-            const uiHit = this.uiLayer.hitTest(point, { tolerance: 10, fill: true, stroke: true });
-            if (uiHit && uiHit.item && uiHit.item.data) {
-                handleType = uiHit.item.data.type;
-                if (handleType === 'rotate') {
-                    isRotating = true;
-                    const center = this.getSelectionBounds().center;
-                    transformRef = { center: center, startAngle: point.subtract(center).angle, totalApplied: 0 };
-                    return;
-                } else if (handleType.startsWith('scale-')) {
-                    isScaling = true;
-                    const bounds = this.getSelectionBounds();
-                    const cornerPivot = bounds[this.getOppositeCorner(handleType)];
-                    transformRef = { 
-                        bounds: bounds.clone(), 
-                        startPoint: point, 
-                        pivot: cornerPivot,
-                        center: bounds.center.clone(),
-                        totalScaleX: 1, 
-                        totalScaleY: 1,
-                        lastPivot: cornerPivot
-                    };
-                    return;
-                }
-            }
-
-            const hitResult = this.drawLayer.hitTest(point, { segments: true, stroke: true, fill: true, tolerance: 10, curves: true });
-            if (hitResult && hitResult.item) {
-                let item = hitResult.item;
-                while (item.parent && item.parent !== this.drawLayer) item = item.parent;
-                if (event.modifiers.shift) {
-                    item.selected ? this.removeFromSelection(item) : this.addToSelection(item);
-                } else {
-                    if (!item.selected) this.setSelected(item);
-                    isDragging = true;
-                    dragAppliedTranslation = new paper.Point(0, 0);
-                    this.uiLayer.visible = false;
-                }
-                return;
-            }
-
-            const hitSelectedBounds = this.selectedItems.some(item => item.strokeBounds.contains(point));
-            if (hitSelectedBounds && !event.modifiers.shift) {
-                isDragging = true;
-                dragAppliedTranslation = new paper.Point(0, 0);
-                this.canvas.style.cursor = 'move';
-                this.uiLayer.visible = false;
-                return;
-            }
-
-            if (!event.modifiers.shift) this.setSelected(null);
-            startPoint = point;
-        };
-
-        tool.onMouseDrag = (event) => {
-            if (isRotating) {
-                const center = transformRef.center;
-                const currentAngle = event.point.subtract(center).angle;
-                let rawDelta = currentAngle - transformRef.startAngle;
-                let desiredTotal = rawDelta;
-                if (event.modifiers.shift) {
-                    const snapAngle = 15;
-                    desiredTotal = Math.round(rawDelta / snapAngle) * snapAngle;
-                }
-                const incrementalDelta = desiredTotal - transformRef.totalApplied;
-                if (incrementalDelta !== 0) {
-                    this.selectedItems.forEach(item => item.rotate(incrementalDelta, center));
-                    transformRef.totalApplied = desiredTotal;
-                    this.updateTransformUI();
-                }
-            } else if (isScaling) {
-                const currentPivot = event.modifiers.alt ? transformRef.center : transformRef.pivot;
-                const startVec = transformRef.startPoint.subtract(currentPivot);
-                const currentVec = event.point.subtract(currentPivot);
-                
-                if (Math.abs(startVec.x) < 0.001 || Math.abs(startVec.y) < 0.001) return;
-                
-                let desiredScaleX = currentVec.x / startVec.x;
-                let desiredScaleY = currentVec.y / startVec.y;
-                
-                if (event.modifiers.shift) {
-                    const uniformScale = Math.max(Math.abs(desiredScaleX), Math.abs(desiredScaleY));
-                    desiredScaleX = (desiredScaleX < 0 ? -1 : 1) * uniformScale;
-                    desiredScaleY = (desiredScaleY < 0 ? -1 : 1) * uniformScale;
-                }
-                
-                if (Math.abs(desiredScaleX) < 0.01) desiredScaleX = desiredScaleX < 0 ? -0.01 : 0.01;
-                if (Math.abs(desiredScaleY) < 0.01) desiredScaleY = desiredScaleY < 0 ? -0.01 : 0.01;
-
-                if (desiredScaleX !== transformRef.totalScaleX || desiredScaleY !== transformRef.totalScaleY || !currentPivot.equals(transformRef.lastPivot)) {
-                    this.selectedItems.forEach(item => {
-                        // 1. Revert previous incremental transformation relative to its pivot
-                        item.scale(1 / transformRef.totalScaleX, 1 / transformRef.totalScaleY, transformRef.lastPivot);
-                        // 2. Apply new total transformation relative to the current pivot
-                        item.scale(desiredScaleX, desiredScaleY, currentPivot);
-                    });
-                    
-                    transformRef.totalScaleX = desiredScaleX;
-                    transformRef.totalScaleY = desiredScaleY;
-                    transformRef.lastPivot = currentPivot;
-                    this.updateTransformUI();
-                }
-            } else if (isDragging) {
-                if (event.modifiers.alt && !hasDuplicatedOnDrag && this.selectedItems.length > 0) {
-                    const clones = this.selectedItems.map(item => {
-                        const clone = item.clone();
-                        clone.data.uid = this._generateUID(); // Ensure clone gets its own UID
-                        return clone;
-                    });
-                    this.setSelected(clones);
-                    hasDuplicatedOnDrag = true;
-                }
-
-                let desiredTranslation = event.point.subtract(event.downPoint);
-                
-                // Axis constraint when Shift is held
-                if (event.modifiers.shift) {
-                    if (Math.abs(desiredTranslation.x) > Math.abs(desiredTranslation.y)) {
-                        desiredTranslation.y = 0;
-                    } else {
-                        desiredTranslation.x = 0;
-                    }
-                }
-                
-                let deltaToApply = desiredTranslation.subtract(dragAppliedTranslation);
-                this.selectedItems.forEach(item => item.position = item.position.add(deltaToApply));
-                dragAppliedTranslation = desiredTranslation;
-            } else if (startPoint) {
-                if (selectionRect) selectionRect.remove();
-                selectionRect = new paper.Path.Rectangle(startPoint, event.point);
-                selectionRect.strokeColor = '#3b82f6';
-                selectionRect.fillColor = new paper.Color(59, 130, 246, 0.1);
-                selectionRect.dashArray = [4, 4];
-            }
-        };
-
-        tool.onMouseUp = (event) => {
-            if (isDragging || isRotating || isScaling) this.saveHistory();
-            if (selectionRect) {
-                const items = this.drawLayer.children;
-                const newSelection = [];
-                for (const item of items) {
-                    if (item === selectionRect) continue;
-                    if (selectionRect.intersects(item) || selectionRect.contains(item.bounds.center)) newSelection.push(item);
-                }
-                event.modifiers.shift ? newSelection.forEach(item => this.addToSelection(item)) : this.setSelected(newSelection);
-                selectionRect.remove();
-                selectionRect = null;
-            }
-            isDragging = isRotating = isScaling = hasDuplicatedOnDrag = false;
-            startPoint = null;
-            this.uiLayer.visible = true;
-            this.updateTransformUI();
-            this.canvas.style.cursor = 'default';
-        };
-    }
-
-    initDirectSelectionTool() {
-        this.tools.directSelection = new paper.Tool();
-        const tool = this.tools.directSelection;
-        let dragSegment = null;
-
-        tool.onMouseDown = (event) => {
-            if (event.event.button !== 0) return;
-            
-            if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
-                document.activeElement.blur();
-            }
-
-            const point = event.point;
-            window.dispatchEvent(new CustomEvent('appMouseDown'));
-
-            const hitResult = this.drawLayer.hitTest(point, {
-                segments: true,
-                stroke: true,
-                fill: true,
-                tolerance: 5
-            });
-
-            if (hitResult) {
-                const item = hitResult.item;
-                if (!item.selected) {
-                    this.setSelected(item);
-                }
-
-                if (hitResult.type === 'segment') {
-                    dragSegment = hitResult.segment;
-                } else {
-                    dragSegment = null;
-                }
-            } else {
-                this.setSelected(null);
-                dragSegment = null;
-            }
-        };
-
-        tool.onMouseDrag = (event) => {
-            if (dragSegment) {
-                dragSegment.point = dragSegment.point.add(event.delta);
-                this.updateTransformUI();
-            }
-        };
-
-        tool.onMouseUp = (event) => {
-            if (dragSegment) this.saveHistory();
-            dragSegment = null;
-        };
-    }
-
-    initEyedropperTool() {
-        this.tools.eyedropper = new paper.Tool();
-        const tool = this.tools.eyedropper;
-
-        tool.onMouseDown = (event) => {
-            if (event.event.button !== 0) return;
-            
-            const hitResult = this.drawLayer.hitTest(event.point, {
-                fill: true,
-                stroke: true,
-                tolerance: 5
-            });
-
-            if (hitResult && hitResult.item) {
-                const target = hitResult.item;
-                
-                // Apply styles to selected items directly to bypass "helpful" logic in applyStyle
-                if (this.selectedItems.length > 0) {
-                    this.selectedItems.forEach(item => {
-                        // Copy main style properties with fidelity
-                        item.fillColor = target.fillColor;
-                        item.strokeColor = target.strokeColor;
-                        item.strokeWidth = target.strokeWidth;
-                        
-                        // Copy dash array if present
-                        if (target.dashArray) {
-                            item.dashArray = [...target.dashArray];
-                        } else {
-                            item.dashArray = [];
-                        }
-                    });
-                    
-                    this.saveHistory();
-                    this.updateTransformUI();
-                    this.updateUI();
-                }
-            }
-        };
     }
 
     setTool(name) {
@@ -768,9 +497,7 @@ export class SvgEditor {
                 } else if (prop === 'strokeWidth') {
                     const width = parseFloat(val);
                     item.strokeWidth = width;
-                    // Only add black if the item already had some sort of stroke property OR if it's a basic path
                     if (width > 0 && !item.strokeColor) {
-                        // Check if parent is a group, if so, be more careful
                         if (item.parent && item.parent.className !== 'Group') {
                             item.strokeColor = '#000000';
                         }
@@ -798,20 +525,17 @@ export class SvgEditor {
     getSelectionStyle() {
         if (this.selectedItems.length === 0) return null;
         
-        // Greedily find the best representative item
         const getRepresentative = (items) => {
             for (const item of items) {
                 if (item.className === 'Group' && item.children) {
                     const found = getRepresentative(item.children);
                     if (found) return found;
                 } else {
-                    // Return the first path-like item that has either fill or stroke
                     if (item.fillColor || (item.strokeColor && item.strokeWidth > 0)) {
                         return item;
                     }
                 }
             }
-            // Fallback to the very first item if nothing "rich" is found
             return items[0];
         };
 
@@ -888,7 +612,6 @@ export class SvgEditor {
             if (el.getAttribute(attr) === defaultValue) el.removeAttribute(attr);
         }
 
-        // If no stroke is present, remove all stroke-related attributes
         if (!el.getAttribute('stroke')) {
             el.removeAttribute('stroke-width');
             el.removeAttribute('stroke-linecap');
@@ -939,18 +662,14 @@ export class SvgEditor {
     getSVGString() {
         const bounds = this.artboardBounds;
         const rootSvg = this._createCleanRoot(bounds.width, bounds.height);
-        
-        // Filter out tool/UI items and clone valid items for temporary translation
         const clones = this.drawLayer.children
             .filter(item => !(item.data && item.data.isTool))
             .map(item => item.clone({ insert: false }));
             
         if (clones.length === 0) return rootSvg.outerHTML;
 
-        // Group clones to translate them to artboard local space (0,0)
         const tempGroup = new paper.Group(clones);
         tempGroup.translate(bounds.topLeft.multiply(-1));
-        
         tempGroup.children.forEach(item => {
             rootSvg.appendChild(this._sanitizeElement(item.exportSVG()));
         });
@@ -999,20 +718,11 @@ export class SvgEditor {
                 expandShapes: true, insert: false,
                 onLoad: (item) => {
                     if (!item) return reject(new Error('Import failed'));
-                    
-                    // Recursive function to remove all clip masks
                     const stripClips = (el) => {
-                        if (el.clipMask) {
-                            el.remove();
-                            return;
-                        }
-                        if (el.children) {
-                            // Copy children array to avoid modification issues while iterating
-                            [...el.children].forEach(stripClips);
-                        }
+                        if (el.clipMask) { el.remove(); return; }
+                        if (el.children) [...el.children].forEach(stripClips);
                     };
                     stripClips(item);
-
                     const flattenOpacity = (el) => {
                         if (el.opacity !== 1) {
                             const op = el.opacity;
@@ -1023,33 +733,16 @@ export class SvgEditor {
                         if (el.children) el.children.forEach(flattenOpacity);
                     };
                     flattenOpacity(item);
-
-                    // Paper.js wraps the imported SVG in a Group. We want to unwrap it if it's just a wrapper.
                     let itemsToAdd = [item];
-                    if (item instanceof paper.Group) {
-                        itemsToAdd = [...item.children];
-                    }
-
-                    if (itemsToAdd.length === 0) {
-                        resolve(null);
-                        return;
-                    }
-
+                    if (item instanceof paper.Group) itemsToAdd = [...item.children];
+                    if (itemsToAdd.length === 0) { resolve(null); return; }
                     const addedItems = [];
-                    itemsToAdd.forEach(child => {
-                        this.drawLayer.addChild(child);
-                        addedItems.push(child);
-                    });
-                    
-                    // Center the imported items on the CURRENT artboard
+                    itemsToAdd.forEach(child => { this.drawLayer.addChild(child); addedItems.push(child); });
                     const tempGroup = new paper.Group(addedItems);
                     tempGroup.position = this.artboardBounds.center;
-                    
-                    // Unwrap temp group
                     const finalItems = [...tempGroup.children];
                     this.drawLayer.addChildren(finalItems);
                     tempGroup.remove();
-
                     this.setSelected(finalItems);
                     this.saveHistory();
                     resolve(finalItems.length === 1 ? finalItems[0] : finalItems);
