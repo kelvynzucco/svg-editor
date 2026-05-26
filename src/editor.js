@@ -683,8 +683,23 @@ export class SvgEditor {
     _sanitizeElement(el) {
         if (!el || el.nodeType !== 1) return el;
         el.removeAttribute('clip-path');
+        el.removeAttribute('data-paper-data');
         if (el.id && (el.id.startsWith('clip-') || el.id.startsWith('paper-'))) el.removeAttribute('id');
-        const defaults = { 'fill-rule': 'nonzero', 'stroke-linecap': 'butt', 'stroke-linejoin': 'miter', 'stroke-miterlimit': '10', 'font-family': 'none', 'font-weight': 'none', 'font-size': 'none', 'text-anchor': 'none', 'mix-blend-mode': 'normal', 'fill': 'none', 'stroke': 'none' };
+        const defaults = { 
+            'fill-rule': 'nonzero', 
+            'stroke-linecap': 'butt', 
+            'stroke-linejoin': 'miter', 
+            'stroke-miterlimit': '10', 
+            'font-family': 'none', 
+            'font-weight': 'none', 
+            'font-size': 'none', 
+            'text-anchor': 'none', 
+            'mix-blend-mode': 'normal', 
+            'fill': 'none', 
+            'stroke': 'none',
+            'stroke-dasharray': '',
+            'stroke-dashoffset': '0'
+        };
         for (const [attr, defaultValue] of Object.entries(defaults)) {
             if (el.getAttribute(attr) === defaultValue) el.removeAttribute(attr);
         }
@@ -707,7 +722,18 @@ export class SvgEditor {
             const tag = child.tagName.toLowerCase();
             if (tag === 'g' || tag === 'svg') {
                 const significantAttrs = ['fill', 'stroke', 'stroke-width', 'opacity', 'transform', 'filter', 'mask'];
-                if (!Array.from(child.attributes).some(attr => significantAttrs.includes(attr.name.toLowerCase()))) {
+                const hasSignificant = Array.from(child.attributes).some(attr => {
+                    const name = attr.name.toLowerCase();
+                    if (!significantAttrs.includes(name)) return false;
+                    const val = attr.value;
+                    if (name === 'stroke-width' && (val === '1' || val === '0')) return false;
+                    if (name === 'stroke-dasharray' && val === '') return false;
+                    if (name === 'stroke-dashoffset' && val === '0') return false;
+                    if (name === 'opacity' && val === '1') return false;
+                    return true;
+                });
+                
+                if (!hasSignificant) {
                     while (child.firstChild) parent.insertBefore(child.firstChild, child);
                     parent.removeChild(child);
                 }
@@ -762,9 +788,23 @@ export class SvgEditor {
                 }
             } catch (e) { svgString = data; }
             this.project.importSVG(svgString, {
-                expandShapes: true, insert: true,
+                expandShapes: false, insert: false,
                 onLoad: (item) => {
                     if (!item) return reject(new Error('Import failed'));
+                    
+                    // Recursive function to remove all clip masks
+                    const stripClips = (el) => {
+                        if (el.clipMask) {
+                            el.remove();
+                            return;
+                        }
+                        if (el.children) {
+                            // Copy children array to avoid modification issues while iterating
+                            [...el.children].forEach(stripClips);
+                        }
+                    };
+                    stripClips(item);
+
                     const flattenOpacity = (el) => {
                         if (el.opacity !== 1) {
                             const op = el.opacity;
@@ -775,11 +815,36 @@ export class SvgEditor {
                         if (el.children) el.children.forEach(flattenOpacity);
                     };
                     flattenOpacity(item);
-                    this.drawLayer.addChild(item);
-                    item.position = this.view.center;
-                    this.setSelected(item);
+
+                    // Paper.js wraps the imported SVG in a Group. We want to unwrap it if it's just a wrapper.
+                    let itemsToAdd = [item];
+                    if (item instanceof paper.Group) {
+                        itemsToAdd = [...item.children];
+                    }
+
+                    if (itemsToAdd.length === 0) {
+                        resolve(null);
+                        return;
+                    }
+
+                    const addedItems = [];
+                    itemsToAdd.forEach(child => {
+                        this.drawLayer.addChild(child);
+                        addedItems.push(child);
+                    });
+                    
+                    // Center the imported items as a whole
+                    const tempGroup = new paper.Group(addedItems);
+                    tempGroup.position = this.view.center;
+                    
+                    // Unwrap temp group
+                    const finalItems = [...tempGroup.children];
+                    this.drawLayer.addChildren(finalItems);
+                    tempGroup.remove();
+
+                    this.setSelected(finalItems);
                     this.saveHistory();
-                    resolve(item);
+                    resolve(finalItems.length === 1 ? finalItems[0] : finalItems);
                 },
                 onError: (error) => reject(error)
             });
