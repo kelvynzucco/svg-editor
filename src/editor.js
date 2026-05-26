@@ -647,7 +647,7 @@ export class SvgEditor {
             fillOpacity: (rep.fillColor && rep.fillColor.alpha !== undefined) ? rep.fillColor.alpha * 100 : 100,
             strokeColor: colorToHex(rep.strokeColor),
             strokeOpacity: (rep.strokeColor && rep.strokeColor.alpha !== undefined) ? rep.strokeColor.alpha * 100 : 100,
-            strokeWidth: rep.strokeWidth || 0
+            strokeWidth: rep.strokeColor ? (rep.strokeWidth || 0) : 0
         };
     }
 
@@ -697,12 +697,24 @@ export class SvgEditor {
             'mix-blend-mode': 'normal', 
             'fill': 'none', 
             'stroke': 'none',
+            'stroke-width': '1',
             'stroke-dasharray': '',
             'stroke-dashoffset': '0'
         };
         for (const [attr, defaultValue] of Object.entries(defaults)) {
             if (el.getAttribute(attr) === defaultValue) el.removeAttribute(attr);
         }
+
+        // If no stroke is present, remove all stroke-related attributes
+        if (!el.getAttribute('stroke')) {
+            el.removeAttribute('stroke-width');
+            el.removeAttribute('stroke-linecap');
+            el.removeAttribute('stroke-linejoin');
+            el.removeAttribute('stroke-miterlimit');
+            el.removeAttribute('stroke-dasharray');
+            el.removeAttribute('stroke-dashoffset');
+        }
+
         if (el.getAttribute('style') === 'mix-blend-mode: normal') el.removeAttribute('style');
         Array.from(el.childNodes).forEach(child => {
             if (child.nodeType === 1) {
@@ -788,7 +800,7 @@ export class SvgEditor {
                 }
             } catch (e) { svgString = data; }
             this.project.importSVG(svgString, {
-                expandShapes: false, insert: false,
+                expandShapes: true, insert: false,
                 onLoad: (item) => {
                     if (!item) return reject(new Error('Import failed'));
                     
