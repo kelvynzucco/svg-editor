@@ -3,6 +3,10 @@ import { SvgEditor } from './editor';
 import { align, flip } from './tools/transform';
 import paper from 'paper';
 import Picker from 'vanilla-picker';
+import { initIcons } from './ui/icons';
+
+// Initialize Icons
+initIcons();
 
 // Initialize Editor
 const editor = new SvgEditor('editor-canvas');
