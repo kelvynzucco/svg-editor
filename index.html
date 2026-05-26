@@ -51,9 +51,20 @@
     </header>
 
     <div class="flex flex-1 overflow-hidden">
+      <!-- Main Canvas Area -->
+      <main
+        id="canvas-container"
+        class="relative flex-1 bg-gray-200 p-8 overflow-hidden"
+      >
+        <canvas
+          id="editor-canvas"
+          class="bg-white shadow-lg mx-auto block"
+        ></canvas>
+      </main>
+
       <!-- Sidebar / Tools -->
       <aside
-        class="w-64 bg-white border-r p-6 flex flex-col gap-8 overflow-y-auto scrollbar-hide shadow-inner"
+        class="w-64 bg-white border-l p-6 flex flex-col gap-8 overflow-y-auto scrollbar-hide shadow-inner"
       >
         <section>
           <h2
@@ -181,17 +192,6 @@
           </div>
         </section>
       </aside>
-
-      <!-- Main Canvas Area -->
-      <main
-        id="canvas-container"
-        class="relative flex-1 bg-gray-200 p-8 overflow-hidden"
-      >
-        <canvas
-          id="editor-canvas"
-          class="bg-white shadow-lg mx-auto block"
-        ></canvas>
-      </main>
     </div>
 
     <!-- Modal for Code Import (Hidden by default) -->

@@ -121,7 +121,7 @@ const openPicker = (e, type) => {
     activePickerType = type;
     const rect = e.target.getBoundingClientRect();
     pContainer.style.top = `${rect.top}px`;
-    pContainer.style.left = `${rect.right + 10}px`;
+    pContainer.style.left = `${rect.left - 260}px`; // Moved to left of the sidebar
     const style = editor.getSelectionStyle();
     const currentCol = type === 'fill' ? style?.fillColor : style?.strokeColor;
     sharedPicker.setColor(currentCol || '#000000', true);
@@ -165,32 +165,42 @@ window.addEventListener('selectionChanged', (e) => {
 });
 
 // Manual HEX Handlers
+const expandHex = (hex) => {
+    if (!hex.startsWith('#')) hex = '#' + hex;
+    if (/^#[0-9A-F]{3}$/i.test(hex)) {
+        return '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3];
+    }
+    return hex;
+};
+
 fHex.addEventListener('input', (e) => {
-    let val = e.target.value;
-    if (!val.startsWith('#')) val = '#' + val;
+    let val = expandHex(e.target.value);
     if (/^#[0-9A-F]{6}$/i.test(val)) {
         fSwatch.style.backgroundColor = val;
         editor.applyStyle('fillColor', val, false);
     }
 });
 fHex.addEventListener('change', (e) => {
-    let val = e.target.value;
-    if (!val.startsWith('#')) val = '#' + val;
-    if (/^#[0-9A-F]{6}$/i.test(val)) editor.applyStyle('fillColor', val, true);
+    let val = expandHex(e.target.value);
+    if (/^#[0-9A-F]{6}$/i.test(val)) {
+        e.target.value = val.toUpperCase();
+        editor.applyStyle('fillColor', val, true);
+    }
 });
 
 sHex.addEventListener('input', (e) => {
-    let val = e.target.value;
-    if (!val.startsWith('#')) val = '#' + val;
+    let val = expandHex(e.target.value);
     if (/^#[0-9A-F]{6}$/i.test(val)) {
         sSwatch.style.backgroundColor = val;
         editor.applyStyle('strokeColor', val, false);
     }
 });
 sHex.addEventListener('change', (e) => {
-    let val = e.target.value;
-    if (!val.startsWith('#')) val = '#' + val;
-    if (/^#[0-9A-F]{6}$/i.test(val)) editor.applyStyle('strokeColor', val, true);
+    let val = expandHex(e.target.value);
+    if (/^#[0-9A-F]{6}$/i.test(val)) {
+        e.target.value = val.toUpperCase();
+        editor.applyStyle('strokeColor', val, true);
+    }
 });
 
 // Opacity & Width Handlers
@@ -208,12 +218,23 @@ sOp.addEventListener('input', (e) => {
 });
 sOp.addEventListener('change', (e) => editor.applyStyle('strokeOpacity', e.target.value / 100, true));
 
-sWidth.addEventListener('input', (e) => editor.applyStyle('strokeWidth', e.target.value, false));
+sWidth.addEventListener('input', (e) => editor.applyStyle('strokeWidth', e.target.value, true));
 sWidth.addEventListener('change', (e) => editor.applyStyle('strokeWidth', e.target.value, true));
 
 // Keyboard Shortcuts
 window.addEventListener('keydown', (e) => {
     const isTextInput = (e.target.tagName === 'INPUT' && (e.target.type === 'text' || e.target.type === 'number')) || e.target.tagName === 'TEXTAREA';
+    
+    // Check for undo/redo first to force commit/blur
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'y')) {
+        if (isTextInput) e.target.blur(); 
+        e.preventDefault(); 
+        forceCommitPendingStyle(); 
+        if (e.key === 'z') editor.undo();
+        else editor.redo();
+        return;
+    }
+
     if (isTextInput) {
         const isAppShortcut = (e.ctrlKey || e.metaKey) && ['g', 'backspace'].includes(e.key.toLowerCase());
         if (!isAppShortcut) return;
@@ -221,8 +242,6 @@ window.addEventListener('keydown', (e) => {
     if ((e.key === 'Delete' || e.key === 'Backspace') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
         editor.deleteSelectedItem();
     }
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); forceCommitPendingStyle(); editor.undo(); }
-    if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); forceCommitPendingStyle(); editor.redo(); }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') { e.preventDefault(); editor.groupSelectedItems(); }
     if ((e.ctrlKey || e.metaKey) && e.key === 'Backspace') { e.preventDefault(); editor.ungroupSelectedItems(); }
     if (e.key === '[') editor.sendToBackSelected();
