@@ -418,6 +418,48 @@ export class SvgEditor {
         }
     }
 
+    deleteSelectedComponents() {
+        let changed = false;
+        
+        // 1. Collect all paths that have selected segments
+        const pathsToProcess = new Set();
+        this.project.selectedItems.forEach(item => {
+            if (item.segments) {
+                const hasSelectedSegments = item.segments.some(s => s.selected);
+                if (hasSelectedSegments) pathsToProcess.add(item);
+            }
+        });
+
+        if (pathsToProcess.size > 0) {
+            pathsToProcess.forEach(path => {
+                // Filter out selected segments
+                const remainingSegments = path.segments.filter(s => !s.selected);
+                
+                if (remainingSegments.length < 2) {
+                    // If less than 2 points remain, the path is invalid/invisible, remove it
+                    path.remove();
+                } else {
+                    path.segments = remainingSegments;
+                }
+                changed = true;
+            });
+        } else {
+            // No segments selected, fallback to deleting whole items
+            if (this.selectedItems.length > 0) {
+                this.selectedItems.forEach(item => item.remove());
+                this.setSelected(null);
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            this.selectedItems = this.project.selectedItems.filter(i => !(i.data && i.data.isTool));
+            this.updateTransformUI();
+            this.updateUI();
+            this.saveHistory();
+        }
+    }
+
     duplicateSelectedItems() {
         if (this.selectedItems.length === 0) return;
         const clones = this.selectedItems.map(item => {

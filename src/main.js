@@ -415,7 +415,7 @@ window.addEventListener('keydown', (e) => {
     if (key === 'i') setActiveTool('eyedropper');
     
     if ((e.key === 'Delete' || e.key === 'Backspace') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
-        editor.deleteSelectedItem();
+        editor.deleteSelectedComponents();
     }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') { e.preventDefault(); editor.groupSelectedItems(); }
     if ((e.ctrlKey || e.metaKey) && e.key === 'Backspace') { e.preventDefault(); editor.ungroupSelectedItems(); }
