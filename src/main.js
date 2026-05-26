@@ -141,10 +141,12 @@ sharedPicker.onChange = (color) => {
     const hex = color.hex.substring(0, 7).toUpperCase();
     if (activePickerType === 'fill') {
         fSwatch.style.backgroundColor = hex;
+        fSwatch.style.backgroundImage = 'none';
         fHex.value = hex;
         editor.applyStyle('fillColor', hex, false);
     } else {
         sSwatch.style.backgroundColor = hex;
+        sSwatch.style.backgroundImage = 'none';
         sHex.value = hex;
         editor.applyStyle('strokeColor', hex, false);
     }
@@ -176,8 +178,9 @@ window.addEventListener('mousedown', (e) => {
 });
 
 // Handle Selection UI Updates
-window.addEventListener('selectionChanged', (e) => {
-    const hasSelection = e.detail.items && e.detail.items.length > 0;
+function updateSidebarUI() {
+    const selectedItems = editor.selectedItems;
+    const hasSelection = selectedItems && selectedItems.length > 0;
     Object.values(alignBtns).forEach(btn => { if (btn) btn.disabled = !hasSelection; });
     if (hasSelection) {
         const style = editor.getSelectionStyle();
@@ -216,7 +219,9 @@ window.addEventListener('selectionChanged', (e) => {
             }
         }
     }
-});
+}
+
+window.addEventListener('selectionChanged', updateSidebarUI);
 
 // Manual HEX Handlers
 const expandHex = (hex) => {
@@ -230,8 +235,8 @@ const expandHex = (hex) => {
 fHex.addEventListener('input', (e) => {
     let val = expandHex(e.target.value);
     if (/^#[0-9A-F]{6}$/i.test(val)) {
-        fSwatch.style.backgroundColor = val;
         editor.applyStyle('fillColor', val, false);
+        updateSidebarUI();
     }
 });
 fHex.addEventListener('change', (e) => {
@@ -239,14 +244,15 @@ fHex.addEventListener('change', (e) => {
     if (/^#[0-9A-F]{6}$/i.test(val)) {
         e.target.value = val.toUpperCase();
         editor.applyStyle('fillColor', val, true);
+        updateSidebarUI();
     }
 });
 
 sHex.addEventListener('input', (e) => {
     let val = expandHex(e.target.value);
     if (/^#[0-9A-F]{6}$/i.test(val)) {
-        sSwatch.style.backgroundColor = val;
         editor.applyStyle('strokeColor', val, false);
+        updateSidebarUI();
     }
 });
 sHex.addEventListener('change', (e) => {
@@ -254,6 +260,7 @@ sHex.addEventListener('change', (e) => {
     if (/^#[0-9A-F]{6}$/i.test(val)) {
         e.target.value = val.toUpperCase();
         editor.applyStyle('strokeColor', val, true);
+        updateSidebarUI();
     }
 });
 
@@ -263,17 +270,29 @@ fOp.addEventListener('input', (e) => {
     fOpVal.innerText = `${e.target.value}%`;
     editor.applyStyle('fillOpacity', val, false);
 });
-fOp.addEventListener('change', (e) => editor.applyStyle('fillOpacity', e.target.value / 100, true));
+fOp.addEventListener('change', (e) => {
+    editor.applyStyle('fillOpacity', e.target.value / 100, true);
+    updateSidebarUI();
+});
 
 sOp.addEventListener('input', (e) => {
     const val = e.target.value / 100;
     sOpVal.innerText = `${e.target.value}%`;
     editor.applyStyle('strokeOpacity', val, false);
 });
-sOp.addEventListener('change', (e) => editor.applyStyle('strokeOpacity', e.target.value / 100, true));
+sOp.addEventListener('change', (e) => {
+    editor.applyStyle('strokeOpacity', e.target.value / 100, true);
+    updateSidebarUI();
+});
 
-sWidth.addEventListener('input', (e) => editor.applyStyle('strokeWidth', e.target.value, true));
-sWidth.addEventListener('change', (e) => editor.applyStyle('strokeWidth', e.target.value, true));
+sWidth.addEventListener('input', (e) => {
+    editor.applyStyle('strokeWidth', e.target.value, true);
+    updateSidebarUI();
+});
+sWidth.addEventListener('change', (e) => {
+    editor.applyStyle('strokeWidth', e.target.value, true);
+    updateSidebarUI();
+});
 
 // Keyboard Shortcuts
 window.addEventListener('keydown', (e) => {
