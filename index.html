@@ -61,7 +61,7 @@
       >
         <button
           id="tool-selection"
-          class="p-3 rounded-lg transition-colors bg-blue-50 text-blue-600 shadow-sm"
+          class="p-3 rounded-lg transition-colors bg-blue-50 text-blue-600 shadow-sm focus:outline-none"
           title="Selection Tool (V)"
         >
           <svg
@@ -84,7 +84,7 @@
         </button>
         <button
           id="tool-eyedropper"
-          class="p-3 rounded-lg transition-colors text-gray-400 hover:bg-gray-100"
+          class="p-3 rounded-lg transition-colors text-gray-400 hover:bg-gray-100 focus:outline-none"
           title="Eyedropper Tool (I)"
         >
           <svg
@@ -129,7 +129,7 @@
           <div class="grid grid-cols-3 gap-2">
             <button
               id="align-left"
-              class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-1 py-2 rounded text-[10px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200"
+              class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-1 py-2 rounded text-[10px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200 focus:outline-none"
               title="Align Left"
               disabled
             >
@@ -137,7 +137,7 @@
             </button>
             <button
               id="align-h-center"
-              class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-1 py-2 rounded text-[10px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200"
+              class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-1 py-2 rounded text-[10px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200 focus:outline-none"
               title="Horizontal Center"
               disabled
             >
@@ -145,7 +145,7 @@
             </button>
             <button
               id="align-right"
-              class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-1 py-2 rounded text-[10px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200"
+              class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-1 py-2 rounded text-[10px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200 focus:outline-none"
               title="Align Right"
               disabled
             >
@@ -154,7 +154,7 @@
 
             <button
               id="align-top"
-              class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-1 py-2 rounded text-[10px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200"
+              class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-1 py-2 rounded text-[10px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200 focus:outline-none"
               title="Align Top"
               disabled
             >
@@ -162,7 +162,7 @@
             </button>
             <button
               id="align-v-center"
-              class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-1 py-2 rounded text-[10px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200"
+              class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-1 py-2 rounded text-[10px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200 focus:outline-none"
               title="Vertical Center"
               disabled
             >
@@ -170,27 +170,27 @@
             </button>
             <button
               id="align-bottom"
-              class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-1 py-2 rounded text-[10px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200"
+              class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-1 py-2 rounded text-[10px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200 focus:outline-none"
               title="Align Bottom"
               disabled
             >
               Bottom
             </button>
-          </div>
-        </section>
+            </div>
+            </section>
 
-        <section class="border-t pt-4 border-black/10">
-          <h2
+            <section class="border-t pt-4 border-black/10">
+            <h2
             class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3"
-          >
+            >
             Style
-          </h2>
+            </h2>
 
-          <!-- Fill Controls -->
-          <div class="mb-4">
+            <!-- Fill Controls -->
+            <div class="mb-4">
             <div class="flex items-center justify-between mb-1">
               <label class="block text-[10px] text-gray-400 uppercase">Fill</label>
-              <button id="remove-fill" class="text-gray-300 hover:text-red-500 transition-colors p-0.5" title="Remove Fill">
+              <button id="remove-fill" class="text-gray-300 hover:text-red-500 transition-colors p-0.5 focus:outline-none" title="Remove Fill">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg>
               </button>
             </div>
@@ -203,7 +203,7 @@
               <input
                 type="text"
                 id="fill-hex-input"
-                class="flex-1 bg-gray-50 border border-gray-100 rounded px-2 py-1.5 text-[10px] font-mono outline-none focus:border-blue-300 transition"
+                class="flex-1 bg-gray-50 border border-gray-100 rounded px-2 py-1.5 text-[10px] font-mono outline-none focus:border-blue-300 focus:outline-none transition"
                 placeholder="#000000"
                 value="#000000"
               />
@@ -213,7 +213,7 @@
                 <input
                   type="range"
                   id="fill-opacity"
-                  class="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  class="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer focus:outline-none"
                   min="0"
                   max="100"
                   value="100"
@@ -225,13 +225,13 @@
                 >100%</span
               >
             </div>
-          </div>
+            </div>
 
-          <!-- Stroke Controls -->
-          <div class="mb-4">
+            <!-- Stroke Controls -->
+            <div class="mb-4">
             <div class="flex items-center justify-between mb-1">
               <label class="block text-[10px] text-gray-400 uppercase">Stroke</label>
-              <button id="remove-stroke" class="text-gray-300 hover:text-red-500 transition-colors p-0.5" title="Remove Stroke">
+              <button id="remove-stroke" class="text-gray-300 hover:text-red-500 transition-colors p-0.5 focus:outline-none" title="Remove Stroke">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg>
               </button>
             </div>
@@ -244,7 +244,7 @@
               <input
                 type="text"
                 id="stroke-hex-input"
-                class="flex-1 bg-gray-50 border border-gray-100 rounded px-2 py-1.5 text-[10px] font-mono outline-none focus:border-blue-300 transition"
+                class="flex-1 bg-gray-50 border border-gray-100 rounded px-2 py-1.5 text-[10px] font-mono outline-none focus:border-blue-300 focus:outline-none transition"
                 placeholder="#000000"
                 value="#000000"
               />
@@ -254,7 +254,7 @@
                 <input
                   type="range"
                   id="stroke-opacity"
-                  class="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  class="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer focus:outline-none"
                   min="0"
                   max="100"
                   value="100"
@@ -276,42 +276,41 @@
               <input
                 type="number"
                 id="stroke-width"
-                class="w-12 bg-transparent text-right outline-none text-xs font-mono"
+                class="w-12 bg-transparent text-right outline-none text-xs font-mono focus:outline-none"
                 min="0"
                 step="0.5"
                 value="1"
               />
             </div>
-          </div>
-        </section>
+            </div>
+            </section>
 
-        <section class="mt-auto border-t pt-6 border-black/10">
-          <h2
+            <section class="mt-auto border-t pt-6 border-black/10">
+            <h2
             class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3"
-          >
+            >
             Export
-          </h2>
-          <div class="flex flex-col gap-2">
+            </h2>
+            <div class="flex flex-col gap-2">
             <button
               id="export-file"
-              class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded transition text-sm"
+              class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded transition text-sm focus:outline-none"
             >
               Save Canvas to .svg
             </button>
             <button
               id="copy-code"
-              class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded transition text-sm"
+              class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded transition text-sm focus:outline-none"
             >
               Copy Canvas to &lt;code/&gt;
             </button>
             <button
               id="clear-canvas"
-              class="text-xs text-red-500 hover:text-red-700 underline mt-2 transition text-center w-full"
+              class="text-xs text-red-500 hover:text-red-700 underline mt-2 transition text-center w-full focus:outline-none"
             >
               Clear Canvas
             </button>
-          </div>
-        </section>
+            </div>        </section>
       </aside>
     </div>
 

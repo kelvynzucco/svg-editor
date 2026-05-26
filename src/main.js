@@ -399,9 +399,30 @@ editor.canvas.addEventListener('contextmenu', (e) => {
     if (editor.selectedItem) {
         const hasGroup = editor.selectedItems.some(item => item instanceof paper.Group);
         hasGroup ? ctxUngroupBtn.classList.remove('hidden') : ctxUngroupBtn.classList.add('hidden');
-        contextMenu.style.left = `${e.clientX}px`;
-        contextMenu.style.top = `${e.clientY}px`;
+        
+        // Show menu first to get its dimensions
         contextMenu.classList.remove('hidden');
+        
+        const menuWidth = contextMenu.offsetWidth;
+        const menuHeight = contextMenu.offsetHeight;
+        const windowWidth = window.innerWidth;
+        const windowHeight = window.innerHeight;
+        
+        let left = e.clientX;
+        let top = e.clientY;
+        
+        // Adjust if it goes off right
+        if (left + menuWidth > windowWidth) {
+            left = windowWidth - menuWidth - 10;
+        }
+        
+        // Adjust if it goes off bottom
+        if (top + menuHeight > windowHeight) {
+            top = windowHeight - menuHeight - 10;
+        }
+        
+        contextMenu.style.left = `${left}px`;
+        contextMenu.style.top = `${top}px`;
     }
 });
 
