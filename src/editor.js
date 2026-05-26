@@ -2,6 +2,7 @@ import paper from 'paper';
 import { SelectionTool } from './tools/selection-tool';
 import { DirectSelectionTool } from './tools/direct-selection-tool';
 import { EyedropperTool } from './tools/eyedropper-tool';
+import { ShapeTool } from './tools/shape-tool';
 
 export class SvgEditor {
     constructor(canvasId) {
@@ -34,6 +35,7 @@ export class SvgEditor {
         this.tools = {
             selection: new SelectionTool(this),
             directSelection: new DirectSelectionTool(this),
+            shape: new ShapeTool(this),
             eyedropper: new EyedropperTool(this)
         };
         
@@ -596,6 +598,30 @@ export class SvgEditor {
 
         path.removeSegment(idx);
         path.insertSegments(idx, [segA, segB]);
+    }
+
+    setShapeType(type) {
+        if (this.tools.shape) {
+            this.tools.shape.setType(type);
+        }
+    }
+
+    getGlobalStyle() {
+        const style = this.getSelectionStyle();
+        if (style) {
+            return {
+                fillColor: style.fillColor,
+                strokeColor: style.strokeColor,
+                strokeWidth: style.strokeWidth,
+                fillOpacity: style.fillOpacity / 100
+            };
+        }
+        return {
+            fillColor: '#000000',
+            strokeColor: 'none',
+            strokeWidth: 1,
+            fillOpacity: 1
+        };
     }
 
     updateUI() {

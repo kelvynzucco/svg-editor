@@ -72,11 +72,13 @@ window.addEventListener('keydown', (e) => {
 // UI Elements - Left Toolbar
 const selectionToolBtn = document.getElementById('tool-selection');
 const directSelectionToolBtn = document.getElementById('tool-direct-selection');
+const shapeToolBtn = document.getElementById('tool-shape');
 const eyedropperToolBtn = document.getElementById('tool-eyedropper');
 
 const tools = {
     selection: selectionToolBtn,
     directSelection: directSelectionToolBtn,
+    shape: shapeToolBtn,
     eyedropper: eyedropperToolBtn
 };
 
@@ -90,12 +92,64 @@ function setActiveTool(toolName) {
             btn.classList.add('text-gray-400', 'hover:bg-gray-100');
         }
     });
+
+    if (toolName !== 'shape') {
+        shapeSubmenu.classList.add('hidden');
+    }
+
     editor.setTool(toolName);
 }
 
 selectionToolBtn.addEventListener('click', () => setActiveTool('selection'));
 directSelectionToolBtn.addEventListener('click', () => setActiveTool('directSelection'));
 eyedropperToolBtn.addEventListener('click', () => setActiveTool('eyedropper'));
+
+// Shape Tool Submenu Logic
+const shapeSubmenu = document.getElementById('shape-submenu');
+const shapeIcon = document.getElementById('shape-tool-icon');
+const shapeOptions = {
+    rect: { el: document.getElementById('shape-rect'), icon: 'square', type: 'rectangle' },
+    ellipse: { el: document.getElementById('shape-ellipse'), icon: 'circle', type: 'ellipse' },
+    poly: { el: document.getElementById('shape-poly'), icon: 'hexagon', type: 'polygon' }
+};
+
+shapeToolBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (editor.currentToolName === 'shape') {
+        if (shapeSubmenu.classList.contains('hidden')) {
+            const rect = shapeToolBtn.getBoundingClientRect();
+            shapeSubmenu.style.left = `${rect.right + 8}px`;
+            shapeSubmenu.style.top = `${rect.top}px`;
+            shapeSubmenu.classList.remove('hidden');
+        } else {
+            shapeSubmenu.classList.add('hidden');
+        }
+    } else {
+        setActiveTool('shape');
+    }
+});
+
+Object.entries(shapeOptions).forEach(([key, opt]) => {
+    opt.el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        Object.values(shapeOptions).forEach(o => {
+            o.el.classList.remove('bg-blue-50', 'text-blue-600', 'shadow-sm');
+            o.el.classList.add('text-gray-400', 'hover:bg-gray-100');
+        });
+        opt.el.classList.add('bg-blue-50', 'text-blue-600', 'shadow-sm');
+        opt.el.classList.remove('text-gray-400', 'hover:bg-gray-100');
+        
+        shapeIcon.setAttribute('data-icon', opt.icon);
+        initIcons();
+        
+        editor.setShapeType(opt.type);
+        shapeSubmenu.classList.add('hidden');
+    });
+});
+
+window.addEventListener('shapeCreated', () => {
+    setActiveTool('selection');
+});
 
 // UI Elements - Sidebar Export
 const exportBtn = document.getElementById('export-btn');
@@ -312,6 +366,7 @@ window.addEventListener('click', (e) => {
     const dsMenu = document.getElementById('ds-context-menu');
     if (dsMenu && !dsMenu.contains(e.target)) dsMenu.classList.add('hidden');
     if (!exportBtn.contains(e.target)) exportMenu.classList.add('hidden');
+    if (!shapeToolBtn.contains(e.target) && !shapeSubmenu.contains(e.target)) shapeSubmenu.classList.add('hidden');
     if (!contextMenu.contains(e.target) && !canvasContextMenu.contains(e.target)) {
         contextMenu.classList.add('hidden');
         canvasContextMenu.classList.add('hidden');
@@ -345,6 +400,34 @@ window.addEventListener('keydown', (e) => {
     if (noModifiers) {
         if (key === 'v') setActiveTool('selection');
         if (key === 'a') setActiveTool('directSelection');
+        if (key === 'r') {
+            if (editor.currentToolName === 'shape') {
+                // Cycle through shapes
+                const types = ['rectangle', 'ellipse', 'polygon'];
+                const icons = ['square', 'circle', 'hexagon'];
+                const currentIndex = types.indexOf(editor.tools.shape.currentShapeType);
+                const nextIndex = (currentIndex + 1) % types.length;
+                
+                const nextType = types[nextIndex];
+                const nextIcon = icons[nextIndex];
+
+                editor.setShapeType(nextType);
+                shapeIcon.setAttribute('data-icon', nextIcon);
+                initIcons();
+
+                // Update active state in submenu UI
+                const optionKeys = ['rect', 'ellipse', 'poly'];
+                Object.values(shapeOptions).forEach(o => {
+                    o.el.classList.remove('bg-blue-50', 'text-blue-600', 'shadow-sm');
+                    o.el.classList.add('text-gray-400', 'hover:bg-gray-100');
+                });
+                const activeOpt = shapeOptions[optionKeys[nextIndex]];
+                activeOpt.el.classList.add('bg-blue-50', 'text-blue-600', 'shadow-sm');
+                activeOpt.el.classList.remove('text-gray-400', 'hover:bg-gray-100');
+            } else {
+                setActiveTool('shape');
+            }
+        }
         if (key === 'i') setActiveTool('eyedropper');
         if (key === 'delete' || key === 'backspace') editor.deleteSelectedComponents();
         if (key === '[') editor.sendToBackSelected();

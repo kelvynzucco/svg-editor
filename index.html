@@ -85,6 +85,13 @@
           <span data-icon="mouse-pointer"></span>
         </button>
         <button
+          id="tool-shape"
+          class="p-3 rounded-lg transition-colors text-gray-400 hover:bg-gray-100 focus:outline-none"
+          title="Shape Tool (R)"
+        >
+          <span id="shape-tool-icon" data-icon="square"></span>
+        </button>
+        <button
           id="tool-eyedropper"
           class="p-3 rounded-lg transition-colors text-gray-400 hover:bg-gray-100 focus:outline-none"
           title="Eyedropper Tool (I)"
@@ -595,5 +602,33 @@
 
     <!-- Floating Picker Container -->
     <div id="picker-container" class="fixed hidden z-9999"></div>
+
+    <!-- Shape Submenu -->
+    <div
+      id="shape-submenu"
+      class="hidden fixed bg-white border border-black/10 rounded-xl shadow-xl p-2 flex flex-col gap-1 z-30"
+    >
+      <button
+        id="shape-rect"
+        class="p-2.5 rounded-lg transition-colors bg-blue-50 text-blue-600 focus:outline-none"
+        title="Rectangle"
+      >
+        <span data-icon="square"></span>
+      </button>
+      <button
+        id="shape-ellipse"
+        class="p-2.5 rounded-lg transition-colors text-gray-400 hover:bg-gray-100 focus:outline-none"
+        title="Ellipse"
+      >
+        <span data-icon="circle"></span>
+      </button>
+      <button
+        id="shape-poly"
+        class="p-2.5 rounded-lg transition-colors text-gray-400 hover:bg-gray-100 focus:outline-none"
+        title="Polygon"
+      >
+        <span data-icon="hexagon"></span>
+      </button>
+    </div>
   </body>
 </html>
