@@ -23,7 +23,13 @@ export class SvgEditor {
         this.drawLayer = new paper.Layer({ name: 'draw-layer' });
         this.drawLayer.activate();
 
-        this.initTools();
+        this.tools = {};
+        this.initSelectionTool();
+        this.initEyedropperTool();
+        
+        this.currentToolName = 'selection';
+        this.tools.selection.activate();
+
         this.resize();
         window.addEventListener('resize', () => this.resize());
         
@@ -144,7 +150,7 @@ export class SvgEditor {
     }
 
     _applyState(json) {
-        if (this.tool) this.tool.isDragging = false;
+        if (this.tools[this.currentToolName]) this.tools[this.currentToolName].isDragging = false;
         
         // Remember selection by persistent UIDs
         const selectedUIDs = this.selectedItems.map(i => i.data.uid).filter(Boolean);
@@ -200,8 +206,9 @@ export class SvgEditor {
         }
     }
 
-    initTools() {
-        this.tool = new paper.Tool();
+    initSelectionTool() {
+        this.tools.selection = new paper.Tool();
+        const tool = this.tools.selection;
         let selectionRect = null;
         let startPoint = null;
         let isDragging = false;
@@ -212,7 +219,7 @@ export class SvgEditor {
         let handleType = null;
         let dragAppliedTranslation = new paper.Point(0, 0);
 
-        this.tool.onMouseDown = (event) => {
+        tool.onMouseDown = (event) => {
             if (event.event.button !== 0) return;
             const point = event.point;
             hasDuplicatedOnDrag = false;
@@ -264,7 +271,7 @@ export class SvgEditor {
             startPoint = point;
         };
 
-        this.tool.onMouseDrag = (event) => {
+        tool.onMouseDrag = (event) => {
             if (isRotating) {
                 const center = transformRef.center;
                 const currentAngle = event.point.subtract(center).angle;
@@ -336,7 +343,7 @@ export class SvgEditor {
             }
         };
 
-        this.tool.onMouseUp = (event) => {
+        tool.onMouseUp = (event) => {
             if (isDragging || isRotating || isScaling) this.saveHistory();
             if (selectionRect) {
                 const items = this.drawLayer.children;
@@ -355,6 +362,60 @@ export class SvgEditor {
             this.updateTransformUI();
             this.canvas.style.cursor = 'default';
         };
+    }
+
+    initEyedropperTool() {
+        this.tools.eyedropper = new paper.Tool();
+        const tool = this.tools.eyedropper;
+
+        tool.onMouseDown = (event) => {
+            if (event.event.button !== 0) return;
+            
+            const hitResult = this.drawLayer.hitTest(event.point, {
+                fill: true,
+                stroke: true,
+                tolerance: 5
+            });
+
+            if (hitResult && hitResult.item) {
+                const target = hitResult.item;
+                
+                // Apply styles to selected items directly to bypass "helpful" logic in applyStyle
+                if (this.selectedItems.length > 0) {
+                    this.selectedItems.forEach(item => {
+                        // Copy main style properties with fidelity
+                        item.fillColor = target.fillColor;
+                        item.strokeColor = target.strokeColor;
+                        item.strokeWidth = target.strokeWidth;
+                        
+                        // Copy dash array if present
+                        if (target.dashArray) {
+                            item.dashArray = [...target.dashArray];
+                        } else {
+                            item.dashArray = [];
+                        }
+                    });
+                    
+                    this.saveHistory();
+                    this.updateTransformUI();
+                    this.updateUI();
+                }
+            }
+        };
+    }
+
+    setTool(name) {
+        if (this.tools[name]) {
+            this.currentToolName = name;
+            this.tools[name].activate();
+            
+            // UI Feedback
+            if (name === 'eyedropper') {
+                this.canvas.style.cursor = 'crosshair';
+            } else {
+                this.canvas.style.cursor = 'default';
+            }
+        }
     }
 
     getOppositeCorner(type) {
@@ -514,7 +575,7 @@ export class SvgEditor {
                 item.fillColor = value;
             } else if (property === 'strokeColor') {
                 item.strokeColor = value;
-                if (!item.strokeWidth) item.strokeWidth = 1; 
+                if (value && !item.strokeWidth) item.strokeWidth = 1; 
             } else if (property === 'strokeWidth') {
                 const width = parseFloat(value);
                 item.strokeWidth = width;

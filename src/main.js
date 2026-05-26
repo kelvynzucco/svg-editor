@@ -14,9 +14,11 @@ const importCodeBtn = document.getElementById('import-code-btn');
 
 // UI Elements - Left Toolbar
 const selectionToolBtn = document.getElementById('tool-selection');
+const eyedropperToolBtn = document.getElementById('tool-eyedropper');
 
 const tools = {
-    selection: selectionToolBtn
+    selection: selectionToolBtn,
+    eyedropper: eyedropperToolBtn
 };
 
 function setActiveTool(toolName) {
@@ -29,9 +31,11 @@ function setActiveTool(toolName) {
             btn.classList.add('text-gray-400', 'hover:bg-gray-100');
         }
     });
+    editor.setTool(toolName);
 }
 
 selectionToolBtn.addEventListener('click', () => setActiveTool('selection'));
+eyedropperToolBtn.addEventListener('click', () => setActiveTool('eyedropper'));
 
 // Keyboard Shortcuts
 window.addEventListener('keydown', (e) => {
@@ -40,6 +44,8 @@ window.addEventListener('keydown', (e) => {
     const key = e.key.toLowerCase();
     if (key === 'v') {
         setActiveTool('selection');
+    } else if (key === 'i') {
+        setActiveTool('eyedropper');
     }
 });
 
