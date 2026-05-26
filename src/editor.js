@@ -28,6 +28,7 @@ export class SvgEditor {
 
         this.tools = {};
         this.initSelectionTool();
+        this.initDirectSelectionTool();
         this.initEyedropperTool();
         
         this.currentToolName = 'selection';
@@ -481,6 +482,58 @@ export class SvgEditor {
             this.uiLayer.visible = true;
             this.updateTransformUI();
             this.canvas.style.cursor = 'default';
+        };
+    }
+
+    initDirectSelectionTool() {
+        this.tools.directSelection = new paper.Tool();
+        const tool = this.tools.directSelection;
+        let dragSegment = null;
+
+        tool.onMouseDown = (event) => {
+            if (event.event.button !== 0) return;
+            
+            if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+                document.activeElement.blur();
+            }
+
+            const point = event.point;
+            window.dispatchEvent(new CustomEvent('appMouseDown'));
+
+            const hitResult = this.drawLayer.hitTest(point, {
+                segments: true,
+                stroke: true,
+                fill: true,
+                tolerance: 5
+            });
+
+            if (hitResult) {
+                const item = hitResult.item;
+                if (!item.selected) {
+                    this.setSelected(item);
+                }
+
+                if (hitResult.type === 'segment') {
+                    dragSegment = hitResult.segment;
+                } else {
+                    dragSegment = null;
+                }
+            } else {
+                this.setSelected(null);
+                dragSegment = null;
+            }
+        };
+
+        tool.onMouseDrag = (event) => {
+            if (dragSegment) {
+                dragSegment.point = dragSegment.point.add(event.delta);
+                this.updateTransformUI();
+            }
+        };
+
+        tool.onMouseUp = (event) => {
+            if (dragSegment) this.saveHistory();
+            dragSegment = null;
         };
     }
 

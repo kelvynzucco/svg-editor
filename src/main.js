@@ -67,10 +67,12 @@ window.addEventListener('keydown', (e) => {
 
 // UI Elements - Left Toolbar
 const selectionToolBtn = document.getElementById('tool-selection');
+const directSelectionToolBtn = document.getElementById('tool-direct-selection');
 const eyedropperToolBtn = document.getElementById('tool-eyedropper');
 
 const tools = {
     selection: selectionToolBtn,
+    directSelection: directSelectionToolBtn,
     eyedropper: eyedropperToolBtn
 };
 
@@ -88,6 +90,7 @@ function setActiveTool(toolName) {
 }
 
 selectionToolBtn.addEventListener('click', () => setActiveTool('selection'));
+directSelectionToolBtn.addEventListener('click', () => setActiveTool('directSelection'));
 eyedropperToolBtn.addEventListener('click', () => setActiveTool('eyedropper'));
 
 // UI Elements - Sidebar Export
