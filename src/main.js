@@ -57,6 +57,12 @@ const confirmModal = document.getElementById('confirm-modal');
 const cancelClearBtn = document.getElementById('cancel-clear');
 const confirmClearBtn = document.getElementById('confirm-clear');
 
+const artboardModal = document.getElementById('artboard-modal');
+const artboardWidthInput = document.getElementById('artboard-width');
+const artboardHeightInput = document.getElementById('artboard-height');
+const closeArtboardModalBtn = document.getElementById('close-artboard-modal');
+const confirmArtboardSizeBtn = document.getElementById('confirm-artboard-size');
+
 // Navigation Elements
 const resetViewBtn = document.getElementById('reset-view');
 
@@ -64,6 +70,7 @@ const resetViewBtn = document.getElementById('reset-view');
 const contextMenu = document.getElementById('context-menu');
 const canvasContextMenu = document.getElementById('canvas-context-menu');
 const ctxClearCanvasBtn = document.getElementById('ctx-clear-canvas');
+const ctxSetArtboardBtn = document.getElementById('ctx-set-artboard');
 
 const ctxDeleteBtn = document.getElementById('ctx-delete');
 const ctxCopyBtn = document.getElementById('ctx-copy');
@@ -469,7 +476,14 @@ editor.canvas.addEventListener('contextmenu', (e) => {
     const y = e.clientY - rect.top;
     const point = editor.view.viewToProject(new paper.Point(x, y));
     
-    const hitResult = editor.project.hitTest(point, { segments: true, stroke: true, fill: true, tolerance: 10, curves: true });
+    // Explicitly hit test the drawLayer only to ignore the Artboard
+    const hitResult = editor.drawLayer.hitTest(point, { 
+        segments: true, 
+        stroke: true, 
+        fill: true, 
+        tolerance: 10, 
+        curves: true 
+    });
     
     if (hitResult && hitResult.item) {
         let item = hitResult.item;
@@ -481,7 +495,6 @@ editor.canvas.addEventListener('contextmenu', (e) => {
         hasGroup ? ctxUngroupBtn.classList.remove('hidden') : ctxUngroupBtn.classList.add('hidden');
         positionMenu(contextMenu, e);
     } else {
-        editor.setSelected(null);
         positionMenu(canvasContextMenu, e);
     }
 });
@@ -494,6 +507,24 @@ window.addEventListener('click', () => {
 ctxClearCanvasBtn.addEventListener('click', () => {
     confirmModal.classList.remove('hidden');
     canvasContextMenu.classList.add('hidden');
+});
+
+ctxSetArtboardBtn.addEventListener('click', () => {
+    const bounds = editor.artboardBounds;
+    artboardWidthInput.value = Math.round(bounds.width);
+    artboardHeightInput.value = Math.round(bounds.height);
+    artboardModal.classList.remove('hidden');
+    canvasContextMenu.classList.add('hidden');
+});
+
+closeArtboardModalBtn.addEventListener('click', () => artboardModal.classList.add('hidden'));
+confirmArtboardSizeBtn.addEventListener('click', () => {
+    const w = parseInt(artboardWidthInput.value);
+    const h = parseInt(artboardHeightInput.value);
+    if (!isNaN(w) && !isNaN(h)) {
+        editor.setArtboardSize(w, h);
+        artboardModal.classList.add('hidden');
+    }
 });
 
 ctxDeleteBtn.addEventListener('click', () => { editor.deleteSelectedItem(); contextMenu.classList.add('hidden'); });

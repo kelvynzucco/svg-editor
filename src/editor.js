@@ -59,7 +59,20 @@ export class SvgEditor {
         rect.shadowBlur = 15;
         rect.shadowOffset = new paper.Point(0, 4);
         rect.data.isArtboard = true;
+        rect.guide = true; // Prevents being hit by regular project hit tests
         this.drawLayer.activate();
+    }
+
+    setArtboardSize(width, height) {
+        // Clamp to 4K
+        const w = Math.min(Math.max(width, 10), 4096);
+        const h = Math.min(Math.max(height, 10), 4096);
+        
+        const center = this.artboardBounds.center;
+        this.artboardBounds = new paper.Rectangle(0, 0, w, h);
+        this.artboardBounds.center = center;
+        this.renderArtboard();
+        this.saveHistory();
     }
 
     resetView() {
@@ -938,15 +951,8 @@ export class SvgEditor {
                         addedItems.push(child);
                     });
                     
-                    // Center the imported items as a whole
+                    // Center the imported items on the CURRENT artboard
                     const tempGroup = new paper.Group(addedItems);
-                    
-                    // Adjust artboard to match imported SVG size
-                    const bounds = tempGroup.strokeBounds;
-                    this.artboardBounds = new paper.Rectangle(0, 0, bounds.width, bounds.height);
-                    this.artboardBounds.center = this.view.center;
-                    this.renderArtboard();
-
                     tempGroup.position = this.artboardBounds.center;
                     
                     // Unwrap temp group
