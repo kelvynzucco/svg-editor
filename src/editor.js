@@ -33,7 +33,7 @@ export class SvgEditor {
         this.currentToolName = 'selection';
         this.tools.selection.activate();
 
-        this.artboardBounds = new paper.Rectangle(0, 0, 800, 800);
+        this.artboardBounds = new paper.Rectangle(0, 0, 800, 600);
 
         this.resize();
         window.addEventListener('resize', () => this.resize());
@@ -271,6 +271,14 @@ export class SvgEditor {
         this.history = [];
         this.historyIndex = -1;
         this.setSelected(null);
+        
+        // Reset artboard to default 800x600
+        const center = this.artboardBounds.center;
+        this.artboardBounds = new paper.Rectangle(0, 0, 800, 600);
+        this.artboardBounds.center = center;
+        this.renderArtboard();
+        this.resetView(); // Center view on new artboard
+        
         this.saveHistory();
     }
 

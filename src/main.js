@@ -12,6 +12,59 @@ const importFileBtn = document.getElementById('import-file-btn');
 const importFileInput = document.getElementById('import-file');
 const importCodeBtn = document.getElementById('import-code-btn');
 
+// Lock Shortcuts Toggle
+const toggleLockBtn = document.getElementById('toggle-lock');
+const lockIconUnlocked = document.getElementById('lock-icon-unlocked');
+const lockIconLocked = document.getElementById('lock-icon-locked');
+
+let isLocked = true;
+
+function setLockState(locked) {
+    isLocked = locked;
+    if (isLocked) {
+        lockIconUnlocked.classList.add('hidden');
+        lockIconLocked.classList.remove('hidden');
+        toggleLockBtn.classList.replace('bg-gray-100', 'bg-orange-50');
+    } else {
+        lockIconUnlocked.classList.remove('hidden');
+        lockIconLocked.classList.add('hidden');
+        toggleLockBtn.classList.replace('bg-orange-50', 'bg-gray-100');
+    }
+}
+
+// Initialize state
+setLockState(isLocked);
+
+toggleLockBtn.addEventListener('click', () => setLockState(!isLocked));
+
+// Global Browser Override
+window.addEventListener('contextmenu', (e) => {
+    if (isLocked) e.preventDefault();
+}, true); // Capture phase to beat other listeners
+
+window.addEventListener('keydown', (e) => {
+    if (!isLocked) return;
+    
+    const key = e.key.toLowerCase();
+    const cmd = e.ctrlKey || e.metaKey;
+    const shift = e.shiftKey;
+    
+    // Block common browser overrides when locked
+    if (cmd) {
+        // Refresh: Ctrl+R, Ctrl+Shift+R
+        if (key === 'r') e.preventDefault();
+        // Print, Save, Open, Search, Bookmark, History, Downloads, View Source
+        if (['s', 'p', 'o', 'f', 'g', 'd', 'h', 'j', 'u', 'n', 't'].includes(key)) e.preventDefault();
+        // DevTools: Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C
+        if (shift && ['i', 'j', 'c'].includes(key)) e.preventDefault();
+    }
+
+    // Block F1-F12 (Refresh, DevTools, Fullscreen, etc.)
+    if (/^f\d+$/.test(key)) {
+        e.preventDefault();
+    }
+}, true);
+
 // UI Elements - Left Toolbar
 const selectionToolBtn = document.getElementById('tool-selection');
 const eyedropperToolBtn = document.getElementById('tool-eyedropper');
