@@ -182,19 +182,36 @@ window.addEventListener('selectionChanged', (e) => {
     if (hasSelection) {
         const style = editor.getSelectionStyle();
         if (style) {
-            const hexF = style.fillColor.toUpperCase();
-            fSwatch.style.backgroundColor = hexF;
-            fHex.value = hexF;
-            const hexS = style.strokeColor.toUpperCase();
-            sSwatch.style.backgroundColor = hexS;
-            sHex.value = hexS;
+            // Update Fill UI
+            const isFillNone = !style.fillColor || style.fillColor === 'none';
+            const hexF = isFillNone ? '#FFFFFF' : style.fillColor.toUpperCase();
+            fSwatch.style.backgroundColor = isFillNone ? 'transparent' : hexF;
+            fSwatch.style.backgroundImage = isFillNone ? 'linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc), linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc)' : 'none';
+            fSwatch.style.backgroundSize = isFillNone ? '8px 8px' : 'auto';
+            fSwatch.style.backgroundPosition = isFillNone ? '0 0, 4px 4px' : '0 0';
+            fHex.value = isFillNone ? 'NONE' : hexF;
+            
+            // Update Stroke UI
+            const isStrokeNone = !style.strokeColor || style.strokeColor === 'none';
+            const hexS = isStrokeNone ? '#FFFFFF' : style.strokeColor.toUpperCase();
+            sSwatch.style.backgroundColor = isStrokeNone ? 'transparent' : hexS;
+            sSwatch.style.backgroundImage = isStrokeNone ? 'linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc), linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc)' : 'none';
+            sSwatch.style.backgroundSize = isStrokeNone ? '8px 8px' : 'auto';
+            sSwatch.style.backgroundPosition = isStrokeNone ? '0 0, 4px 4px' : '0 0';
+            sHex.value = isStrokeNone ? 'NONE' : hexS;
+
             fOp.value = style.fillOpacity;
             fOpVal.innerText = `${Math.round(style.fillOpacity)}%`;
             sOp.value = style.strokeOpacity;
             sOpVal.innerText = `${Math.round(style.strokeOpacity)}%`;
-            sWidth.value = style.strokeWidth;
+            
+            // Update stroke width ONLY if it's not currently being edited to avoid jumping
+            if (document.activeElement !== sWidth) {
+                sWidth.value = style.strokeWidth;
+            }
+            
             if (!pContainer.classList.contains('hidden') && activePickerType) {
-                const currentCol = activePickerType === 'fill' ? hexF : hexS;
+                const currentCol = activePickerType === 'fill' ? (isFillNone ? '#FFFFFF' : hexF) : (isStrokeNone ? '#FFFFFF' : hexS);
                 sharedPicker.setColor(currentCol, true);
             }
         }

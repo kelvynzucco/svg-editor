@@ -570,25 +570,37 @@ export class SvgEditor {
 
     applyStyle(property, value, shouldSaveHistory = true) {
         if (this.selectedItems.length === 0) return;
-        this.selectedItems.forEach(item => {
-            if (property === 'fillColor') {
-                item.fillColor = value;
-            } else if (property === 'strokeColor') {
-                item.strokeColor = value;
-                if (value && !item.strokeWidth) item.strokeWidth = 1; 
-            } else if (property === 'strokeWidth') {
-                const width = parseFloat(value);
-                item.strokeWidth = width;
-                if (width > 0 && !item.strokeColor) item.strokeColor = '#000000';
-            } else if (property === 'fillOpacity') {
-                if (!item.fillColor) item.fillColor = '#000000'; 
-                item.fillColor.alpha = parseFloat(value);
-            } else if (property === 'strokeOpacity') {
-                if (!item.strokeColor) item.strokeColor = '#000000'; 
-                if (!item.strokeWidth) item.strokeWidth = 1;
-                item.strokeColor.alpha = parseFloat(value);
+
+        const setRecursive = (item, prop, val) => {
+            if (item.children && item.className === 'Group') {
+                item.children.forEach(child => setRecursive(child, prop, val));
+            } else {
+                if (prop === 'fillColor') {
+                    item.fillColor = val;
+                } else if (prop === 'strokeColor') {
+                    item.strokeColor = val;
+                    if (val && val !== 'none' && (item.strokeWidth === 0 || !item.strokeWidth)) {
+                        item.strokeWidth = 1;
+                    }
+                } else if (prop === 'strokeWidth') {
+                    const width = parseFloat(val);
+                    item.strokeWidth = width;
+                    // Only add black if the item already had some sort of stroke property OR if it's a basic path
+                    if (width > 0 && !item.strokeColor) {
+                        // Check if parent is a group, if so, be more careful
+                        if (item.parent && item.parent.className !== 'Group') {
+                            item.strokeColor = '#000000';
+                        }
+                    }
+                } else if (prop === 'fillOpacity') {
+                    if (item.fillColor) item.fillColor.alpha = parseFloat(val);
+                } else if (prop === 'strokeOpacity') {
+                    if (item.strokeColor) item.strokeColor.alpha = parseFloat(val);
+                }
             }
-        });
+        };
+
+        this.selectedItems.forEach(item => setRecursive(item, property, value));
         
         if (shouldSaveHistory) {
             this.saveHistory();
@@ -602,14 +614,40 @@ export class SvgEditor {
 
     getSelectionStyle() {
         if (this.selectedItems.length === 0) return null;
-        const item = this.selectedItems[0];
-        const hasStroke = !!item.strokeColor;
+        
+        // Greedily find the best representative item
+        const getRepresentative = (items) => {
+            for (const item of items) {
+                if (item.className === 'Group' && item.children) {
+                    const found = getRepresentative(item.children);
+                    if (found) return found;
+                } else {
+                    // Return the first path-like item that has either fill or stroke
+                    if (item.fillColor || (item.strokeColor && item.strokeWidth > 0)) {
+                        return item;
+                    }
+                }
+            }
+            // Fallback to the very first item if nothing "rich" is found
+            return items[0];
+        };
+
+        const rep = getRepresentative(this.selectedItems);
+        if (!rep) return null;
+
+        const colorToHex = (col) => {
+            if (!col) return 'none';
+            try {
+                return col.toCSS ? col.toCSS(true) : 'none';
+            } catch (e) { return 'none'; }
+        };
+
         return {
-            fillColor: item.fillColor ? item.fillColor.toCSS(true) : '#000000',
-            fillOpacity: item.fillColor ? item.fillColor.alpha * 100 : 100,
-            strokeColor: item.strokeColor ? item.strokeColor.toCSS(true) : '#000000',
-            strokeOpacity: item.strokeColor ? item.strokeColor.alpha * 100 : 100,
-            strokeWidth: hasStroke ? item.strokeWidth : 0
+            fillColor: colorToHex(rep.fillColor),
+            fillOpacity: (rep.fillColor && rep.fillColor.alpha !== undefined) ? rep.fillColor.alpha * 100 : 100,
+            strokeColor: colorToHex(rep.strokeColor),
+            strokeOpacity: (rep.strokeColor && rep.strokeColor.alpha !== undefined) ? rep.strokeColor.alpha * 100 : 100,
+            strokeWidth: rep.strokeWidth || 0
         };
     }
 
