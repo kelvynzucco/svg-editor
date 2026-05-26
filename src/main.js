@@ -100,16 +100,6 @@ const exportFileBtn = document.getElementById('export-file');
 const copyCodeBtn = document.getElementById('copy-code');
 const clearCanvasBtn = document.getElementById('clear-canvas');
 
-exportBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    exportMenu.classList.toggle('hidden');
-});
-
-// Auto-close export menu
-window.addEventListener('click', () => {
-    exportMenu.classList.add('hidden');
-});
-
 // Modals
 const codeModal = document.getElementById('code-modal');
 const closeModalBtn = document.getElementById('close-modal');
@@ -180,18 +170,16 @@ const removeStrokeBtn = document.getElementById('remove-stroke');
 const pContainer = document.getElementById('picker-container');
 
 // PREEMPTIVE COMMIT LOGIC
-// Force-commit current picker color before starting other actions
 const forceCommitPendingStyle = () => {
     if (!pContainer.classList.contains('hidden') && activePickerType) {
         const type = activePickerType === 'fill' ? 'fillColor' : 'strokeColor';
         const finalHex = sharedPicker.color.hex.substring(0, 7);
-        editor.applyStyle(type, finalHex, true); // Atomic history snapshot
+        editor.applyStyle(type, finalHex, true);
         pContainer.classList.add('hidden');
         activePickerType = null;
     }
 };
 
-// Listen for tool start in main
 window.addEventListener('appMouseDown', forceCommitPendingStyle);
 
 // Shared Picker Logic
@@ -226,14 +214,12 @@ sharedPicker.onChange = (color) => {
 };
 
 const openPicker = (e, type) => {
-    // Commit any other open picker first
     if (activePickerType && activePickerType !== type) forceCommitPendingStyle();
-    
     e.stopPropagation();
     activePickerType = type;
     const rect = e.target.getBoundingClientRect();
     pContainer.style.top = `${rect.top}px`;
-    pContainer.style.left = `${rect.left - 260}px`; // Moved to left of the sidebar
+    pContainer.style.left = `${rect.left - 260}px`;
     const style = editor.getSelectionStyle();
     const currentCol = type === 'fill' ? style?.fillColor : style?.strokeColor;
     sharedPicker.setColor(currentCol || '#000000', true);
@@ -243,14 +229,12 @@ const openPicker = (e, type) => {
 fSwatch.addEventListener('click', (e) => openPicker(e, 'fill'));
 sSwatch.addEventListener('click', (e) => openPicker(e, 'stroke'));
 
-// Global click outside to commit and close
 window.addEventListener('mousedown', (e) => {
     if (pContainer && !pContainer.contains(e.target) && !fSwatch.contains(e.target) && !sSwatch.contains(e.target)) {
         forceCommitPendingStyle();
     }
 });
 
-// Handle Selection UI Updates
 function updateSidebarUI() {
     const selectedItems = editor.selectedItems;
     const hasSelection = selectedItems && selectedItems.length > 0;
@@ -258,7 +242,6 @@ function updateSidebarUI() {
     if (hasSelection) {
         const style = editor.getSelectionStyle();
         if (style) {
-            // Update Fill UI
             const isFillNone = !style.fillColor || style.fillColor === 'none';
             const hexF = isFillNone ? '#FFFFFF' : style.fillColor.toUpperCase();
             fSwatch.style.backgroundColor = isFillNone ? 'transparent' : hexF;
@@ -267,7 +250,6 @@ function updateSidebarUI() {
             fSwatch.style.backgroundPosition = isFillNone ? '0 0, 4px 4px' : '0 0';
             fHex.value = isFillNone ? 'NONE' : hexF;
             
-            // Update Stroke UI
             const isStrokeNone = !style.strokeColor || style.strokeColor === 'none';
             const hexS = isStrokeNone ? '#FFFFFF' : style.strokeColor.toUpperCase();
             sSwatch.style.backgroundColor = isStrokeNone ? 'transparent' : hexS;
@@ -280,143 +262,82 @@ function updateSidebarUI() {
             fOpVal.innerText = `${Math.round(style.fillOpacity)}%`;
             sOp.value = style.strokeOpacity;
             sOpVal.innerText = `${Math.round(style.strokeOpacity)}%`;
-            
-            // Update stroke width ONLY if it's not currently being edited to avoid jumping
-            if (document.activeElement !== sWidth) {
-                sWidth.value = style.strokeWidth;
-            }
-            
-            if (!pContainer.classList.contains('hidden') && activePickerType) {
-                const currentCol = activePickerType === 'fill' ? (isFillNone ? '#FFFFFF' : hexF) : (isStrokeNone ? '#FFFFFF' : hexS);
-                sharedPicker.setColor(currentCol, true);
-            }
+            if (document.activeElement !== sWidth) sWidth.value = style.strokeWidth;
         }
     }
 }
 
 window.addEventListener('selectionChanged', updateSidebarUI);
 
-// Manual HEX Handlers
 const expandHex = (hex) => {
     if (!hex.startsWith('#')) hex = '#' + hex;
-    if (/^#[0-9A-F]{3}$/i.test(hex)) {
-        return '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3];
-    }
+    if (/^#[0-9A-F]{3}$/i.test(hex)) return '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3];
     return hex;
 };
 
 fHex.addEventListener('input', (e) => {
     let val = expandHex(e.target.value);
-    if (/^#[0-9A-F]{6}$/i.test(val)) {
-        editor.applyStyle('fillColor', val, false);
-        updateSidebarUI();
-    }
+    if (/^#[0-9A-F]{6}$/i.test(val)) { editor.applyStyle('fillColor', val, false); updateSidebarUI(); }
 });
 fHex.addEventListener('change', (e) => {
     let val = expandHex(e.target.value);
-    if (/^#[0-9A-F]{6}$/i.test(val)) {
-        e.target.value = val.toUpperCase();
-        editor.applyStyle('fillColor', val, true);
-        updateSidebarUI();
-    }
+    if (/^#[0-9A-F]{6}$/i.test(val)) { e.target.value = val.toUpperCase(); editor.applyStyle('fillColor', val, true); updateSidebarUI(); }
 });
 
 sHex.addEventListener('input', (e) => {
     let val = expandHex(e.target.value);
-    if (/^#[0-9A-F]{6}$/i.test(val)) {
-        editor.applyStyle('strokeColor', val, false);
-        updateSidebarUI();
-    }
+    if (/^#[0-9A-F]{6}$/i.test(val)) { editor.applyStyle('strokeColor', val, false); updateSidebarUI(); }
 });
 sHex.addEventListener('change', (e) => {
     let val = expandHex(e.target.value);
-    if (/^#[0-9A-F]{6}$/i.test(val)) {
-        e.target.value = val.toUpperCase();
-        editor.applyStyle('strokeColor', val, true);
-        updateSidebarUI();
+    if (/^#[0-9A-F]{6}$/i.test(val)) { e.target.value = val.toUpperCase(); editor.applyStyle('strokeColor', val, true); updateSidebarUI(); }
+});
+
+fOp.addEventListener('input', (e) => { fOpVal.innerText = `${e.target.value}%`; editor.applyStyle('fillOpacity', e.target.value / 100, false); });
+fOp.addEventListener('change', (e) => { editor.applyStyle('fillOpacity', e.target.value / 100, true); updateSidebarUI(); });
+sOp.addEventListener('input', (e) => { sOpVal.innerText = `${e.target.value}%`; editor.applyStyle('strokeOpacity', e.target.value / 100, false); });
+sOp.addEventListener('change', (e) => { editor.applyStyle('strokeOpacity', e.target.value / 100, true); updateSidebarUI(); });
+sWidth.addEventListener('input', (e) => { editor.applyStyle('strokeWidth', e.target.value, true); updateSidebarUI(); });
+sWidth.addEventListener('change', (e) => { editor.applyStyle('strokeWidth', e.target.value, true); updateSidebarUI(); });
+
+removeFillBtn.addEventListener('click', () => { editor.applyStyle('fillColor', 'none', true); updateSidebarUI(); });
+removeStrokeBtn.addEventListener('click', () => { editor.applyStyle('strokeColor', 'none', false); editor.applyStyle('strokeWidth', 0, true); updateSidebarUI(); });
+
+// Floating Menus Auto-close
+window.addEventListener('click', (e) => {
+    if (!exportBtn.contains(e.target)) exportMenu.classList.add('hidden');
+    if (!contextMenu.contains(e.target) && !canvasContextMenu.contains(e.target)) {
+        contextMenu.classList.add('hidden');
+        canvasContextMenu.classList.add('hidden');
     }
 });
 
-// Opacity & Width Handlers
-fOp.addEventListener('input', (e) => {
-    const val = e.target.value / 100;
-    fOpVal.innerText = `${e.target.value}%`;
-    editor.applyStyle('fillOpacity', val, false);
-});
-fOp.addEventListener('change', (e) => {
-    editor.applyStyle('fillOpacity', e.target.value / 100, true);
-    updateSidebarUI();
-});
-
-sOp.addEventListener('input', (e) => {
-    const val = e.target.value / 100;
-    sOpVal.innerText = `${e.target.value}%`;
-    editor.applyStyle('strokeOpacity', val, false);
-});
-sOp.addEventListener('change', (e) => {
-    editor.applyStyle('strokeOpacity', e.target.value / 100, true);
-    updateSidebarUI();
-});
-
-sWidth.addEventListener('input', (e) => {
-    editor.applyStyle('strokeWidth', e.target.value, true);
-    updateSidebarUI();
-});
-sWidth.addEventListener('change', (e) => {
-    editor.applyStyle('strokeWidth', e.target.value, true);
-    updateSidebarUI();
-});
-
-removeFillBtn.addEventListener('click', () => {
-    editor.applyStyle('fillColor', 'none', true);
-    updateSidebarUI();
-});
-
-removeStrokeBtn.addEventListener('click', () => {
-    editor.applyStyle('strokeColor', 'none', false);
-    editor.applyStyle('strokeWidth', 0, true);
-    updateSidebarUI();
+exportBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    exportMenu.classList.toggle('hidden');
 });
 
 // Keyboard Shortcuts & Navigation
 let isSpaceDown = false;
-
 window.addEventListener('keydown', (e) => {
     const isTextInput = (e.target.tagName === 'INPUT' && (e.target.type === 'text' || e.target.type === 'number')) || e.target.tagName === 'TEXTAREA';
-    
-    // Space for panning
     if (e.code === 'Space' && !isTextInput) {
-        if (!isSpaceDown) {
-            isSpaceDown = true;
-            editor.canvas.style.cursor = 'grab';
-        }
-        e.preventDefault();
-        return;
+        if (!isSpaceDown) { isSpaceDown = true; editor.canvas.style.cursor = 'grab'; }
+        e.preventDefault(); return;
     }
-
-    // Check for undo/redo first to force commit/blur
     if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'y')) {
-        if (isTextInput) e.target.blur(); 
-        e.preventDefault(); 
-        forceCommitPendingStyle(); 
-        if (e.key === 'z') editor.undo();
-        else editor.redo();
-        return;
+        if (isTextInput) e.target.blur(); e.preventDefault(); forceCommitPendingStyle(); 
+        if (e.key === 'z') editor.undo(); else editor.redo(); return;
     }
-
     if (isTextInput) {
         const isAppShortcut = (e.ctrlKey || e.metaKey) && ['g', 'backspace'].includes(e.key.toLowerCase());
         if (!isAppShortcut) return;
     }
-    
     const key = e.key.toLowerCase();
     if (key === 'v') setActiveTool('selection');
     if (key === 'a') setActiveTool('directSelection');
     if (key === 'i') setActiveTool('eyedropper');
-    
-    if ((e.key === 'Delete' || e.key === 'Backspace') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
-        editor.deleteSelectedComponents();
-    }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) editor.deleteSelectedComponents();
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') { e.preventDefault(); editor.groupSelectedItems(); }
     if ((e.ctrlKey || e.metaKey) && e.key === 'Backspace') { e.preventDefault(); editor.ungroupSelectedItems(); }
     if (e.key === '[') editor.sendToBackSelected();
@@ -427,14 +348,8 @@ window.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'x') copySelectedToClipboard().then(() => editor.deleteSelectedItem());
 });
 
-window.addEventListener('keyup', (e) => {
-    if (e.code === 'Space') {
-        isSpaceDown = false;
-        editor.canvas.style.cursor = 'default';
-    }
-});
+window.addEventListener('keyup', (e) => { if (e.code === 'Space') { isSpaceDown = false; editor.canvas.style.cursor = 'default'; } });
 
-// Panning and Zooming Events
 editor.canvas.addEventListener('mousedown', (e) => {
     if (isSpaceDown && e.button === 0) {
         editor.isPanning = true;
@@ -480,86 +395,47 @@ async function copySelectedToClipboard() {
     }
 }
 
-// Paste Handler
 window.addEventListener('paste', async (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     const clipboardData = e.clipboardData;
     if (!clipboardData) return;
-    const isSvgCode = (str) => {
-        const s = str.trim();
-        return s.startsWith('<svg') || (s.startsWith('<?xml') && s.includes('<svg'));
-    };
-    const items = clipboardData.items;
-    for (const item of items) {
-        if (item.type === 'image/svg+xml') {
-            const file = item.getAsFile();
-            const text = await file.text();
-            if (text) {
-                editor.importSVG(text).catch(err => console.error('Error pasting SVG:', err));
-                return;
-            }
-        }
-    }
+    const isSvgCode = (str) => { const s = str.trim(); return s.startsWith('<svg') || (s.startsWith('<?xml') && s.includes('<svg')); };
     const text = clipboardData.getData('text/plain');
-    if (text && isSvgCode(text)) {
-        editor.importSVG(text).catch(err => console.error('Error pasting SVG:', err));
-        return;
-    }
+    if (text && isSvgCode(text)) { editor.importSVG(text).catch(err => console.error('Error pasting SVG:', err)); return; }
     const html = clipboardData.getData('text/html');
     if (html && html.includes('<svg')) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
         const svgElement = doc.querySelector('svg');
-        if (svgElement) {
-            editor.importSVG(svgElement.outerHTML).catch(err => console.error('Error pasting SVG:', err));
-        }
+        if (svgElement) editor.importSVG(svgElement.outerHTML).catch(err => console.error('Error pasting SVG:', err));
     }
 });
 
-// Helper to position menus within window
 function positionMenu(menu, e) {
     menu.classList.remove('hidden');
     const menuWidth = menu.offsetWidth;
     const menuHeight = menu.offsetHeight;
     const windowWidth = window.innerWidth;
     const windowHeight = window.innerHeight;
-    
-    let left = e.clientX;
-    let top = e.clientY;
-    
+    let left = e.clientX, top = e.clientY;
     if (left + menuWidth > windowWidth) left = windowWidth - menuWidth - 10;
     if (top + menuHeight > windowHeight) top = windowHeight - menuHeight - 10;
-    
     menu.style.left = `${left}px`;
     menu.style.top = `${top}px`;
 }
 
-// Context Menu Logic
 editor.canvas.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     contextMenu.classList.add('hidden');
     canvasContextMenu.classList.add('hidden');
-
     const rect = editor.canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
     const point = editor.view.viewToProject(new paper.Point(x, y));
-    
-    // Explicitly hit test the drawLayer only to ignore the Artboard
-    const hitResult = editor.drawLayer.hitTest(point, { 
-        segments: true, 
-        stroke: true, 
-        fill: true, 
-        tolerance: 10, 
-        curves: true 
-    });
-    
+    const hitResult = editor.drawLayer.hitTest(point, { segments: true, stroke: true, fill: true, tolerance: 10, curves: true });
     if (hitResult && hitResult.item) {
         let item = hitResult.item;
         while (item.parent && item.parent !== editor.drawLayer) item = item.parent;
-        
         if (!item.selected) editor.setSelected(item);
-        
         const hasGroup = editor.selectedItems.some(i => i instanceof paper.Group);
         hasGroup ? ctxUngroupBtn.classList.remove('hidden') : ctxUngroupBtn.classList.add('hidden');
         positionMenu(contextMenu, e);
@@ -568,22 +444,7 @@ editor.canvas.addEventListener('contextmenu', (e) => {
     }
 });
 
-window.addEventListener('click', (e) => { 
-    // Do not deselect if clicking the canvas (let the tools handle that)
-    if (e.target === editor.canvas) return;
-    
-    // Do not deselect if we actually have items selected (prevents flash)
-    if (editor.selectedItems.length > 0) return;
-
-    contextMenu.classList.add('hidden'); 
-    canvasContextMenu.classList.add('hidden');
-});
-
-ctxClearCanvasBtn.addEventListener('click', () => {
-    confirmModal.classList.remove('hidden');
-    canvasContextMenu.classList.add('hidden');
-});
-
+ctxClearCanvasBtn.addEventListener('click', () => { confirmModal.classList.remove('hidden'); canvasContextMenu.classList.add('hidden'); });
 ctxSetArtboardBtn.addEventListener('click', () => {
     const bounds = editor.artboardBounds;
     artboardWidthInput.value = Math.round(bounds.width);
@@ -594,16 +455,11 @@ ctxSetArtboardBtn.addEventListener('click', () => {
 
 closeArtboardModalBtn.addEventListener('click', () => artboardModal.classList.add('hidden'));
 confirmArtboardSizeBtn.addEventListener('click', () => {
-    const w = parseInt(artboardWidthInput.value);
-    const h = parseInt(artboardHeightInput.value);
-    if (!isNaN(w) && !isNaN(h)) {
-        editor.setArtboardSize(w, h);
-        artboardModal.classList.add('hidden');
-    }
+    const w = parseInt(artboardWidthInput.value), h = parseInt(artboardHeightInput.value);
+    if (!isNaN(w) && !isNaN(h)) { editor.setArtboardSize(w, h); artboardModal.classList.add('hidden'); }
 });
 
 ctxDeleteBtn.addEventListener('click', () => { editor.deleteSelectedItem(); contextMenu.classList.add('hidden'); });
-
 ctxCopyBtn.addEventListener('click', () => {
     if (editor.selectedItem) {
         const svgCode = editor.getSelectedSVGString();
@@ -625,8 +481,6 @@ ctxBackBtn.addEventListener('click', () => { editor.sendToBackSelected(); contex
 ctxGroupBtn.addEventListener('click', () => { editor.groupSelectedItems(); contextMenu.classList.add('hidden'); });
 ctxUngroupBtn.addEventListener('click', () => { editor.ungroupSelectedItems(); contextMenu.classList.add('hidden'); });
 
-
-// Header Handlers
 importFileBtn.addEventListener('click', () => importFileInput.click());
 importFileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
@@ -642,12 +496,10 @@ confirmCodeBtn.addEventListener('click', () => {
     if (code) editor.importSVG(code).then(() => { codeModal.classList.add('hidden'); svgCodeInput.value = ''; }).catch(err => alert('Invalid SVG code: ' + err));
 });
 
-// Alignment Handlers
 Object.entries(alignBtns).forEach(([pos, btn]) => {
     if (btn) btn.addEventListener('click', () => { align(editor.selectedItems, pos, editor.artboardBounds); editor.updateTransformUI(); editor.saveHistory(); });
 });
 
-// Export Handlers
 exportFileBtn.addEventListener('click', () => { filenameModal.classList.remove('hidden'); filenameInput.focus(); filenameInput.select(); });
 closeFilenameModalBtn.addEventListener('click', () => filenameModal.classList.add('hidden'));
 confirmFilenameBtn.addEventListener('click', () => {
@@ -668,7 +520,6 @@ copyCodeBtn.addEventListener('click', () => {
     }).catch(err => alert('Failed to copy: ' + err));
 });
 
-// Clear Canvas Handlers
 clearCanvasBtn.addEventListener('click', () => confirmModal.classList.remove('hidden'));
 cancelClearBtn.addEventListener('click', () => confirmModal.classList.add('hidden'));
 confirmClearBtn.addEventListener('click', () => { editor.clearCanvas(); confirmModal.classList.add('hidden'); });

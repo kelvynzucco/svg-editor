@@ -369,40 +369,83 @@ export class SvgEditor {
         if (!this.uiLayer) return;
         this.uiLayer.clear();
         
-        // ONLY show scale/rotate handles if the Selection tool is active
-        if (this.currentToolName !== 'selection') {
-            this.drawLayer.activate();
-            return;
+        // --- Selection Tool UI (Bounding Box) ---
+        if (this.currentToolName === 'selection') {
+            const bounds = this.getSelectionBounds();
+            if (bounds && this.selectedItems.length > 0) {
+                this.uiLayer.activate();
+                const rect = new paper.Path.Rectangle(bounds);
+                rect.strokeColor = '#3b82f6';
+                rect.strokeWidth = 1;
+                rect.dashArray = [4, 2];
+                rect.data.isTool = true;
+
+                const corners = { topLeft: bounds.topLeft, topRight: bounds.topRight, bottomLeft: bounds.bottomLeft, bottomRight: bounds.bottomRight };
+                for (const [key, pos] of Object.entries(corners)) {
+                    const handle = new paper.Path.Circle(pos, 5);
+                    handle.fillColor = 'white';
+                    handle.strokeColor = '#3b82f6';
+                    handle.data = { type: 'scale-' + key, isTool: true };
+                }
+
+                const rotateHandlePos = bounds.topCenter.subtract(new paper.Point(0, 30));
+                const line = new paper.Path.Line(bounds.topCenter, rotateHandlePos);
+                line.strokeColor = '#3b82f6';
+                line.data.isTool = true;
+                const rotateHandle = new paper.Path.Circle(rotateHandlePos, 6);
+                rotateHandle.fillColor = '#3b82f6';
+                rotateHandle.data = { type: 'rotate', isTool: true };
+            }
         }
 
-        const bounds = this.getSelectionBounds();
-        if (!bounds || this.selectedItems.length === 0) {
-            this.drawLayer.activate();
-            return;
-        }
-        this.uiLayer.activate();
-        const rect = new paper.Path.Rectangle(bounds);
-        rect.strokeColor = '#3b82f6';
-        rect.strokeWidth = 1;
-        rect.dashArray = [4, 2];
-        rect.data.isTool = true;
-
-        const corners = { topLeft: bounds.topLeft, topRight: bounds.topRight, bottomLeft: bounds.bottomLeft, bottomRight: bounds.bottomRight };
-        for (const [key, pos] of Object.entries(corners)) {
-            const handle = new paper.Path.Circle(pos, 5);
-            handle.fillColor = 'white';
-            handle.strokeColor = '#3b82f6';
-            handle.data = { type: 'scale-' + key, isTool: true };
+        // --- Direct Selection Tool UI (Live Corners) ---
+        if (this.currentToolName === 'directSelection') {
+            this.uiLayer.activate();
+            this.project.selectedItems.forEach(item => {
+                if (item.segments) {
+                    item.segments.forEach(seg => {
+                        if (seg.selected) {
+                            this._drawCornerWidget(seg);
+                        }
+                    });
+                }
+            });
         }
 
-        const rotateHandlePos = bounds.topCenter.subtract(new paper.Point(0, 30));
-        const line = new paper.Path.Line(bounds.topCenter, rotateHandlePos);
-        line.strokeColor = '#3b82f6';
-        line.data.isTool = true;
-        const rotateHandle = new paper.Path.Circle(rotateHandlePos, 6);
-        rotateHandle.fillColor = '#3b82f6';
-        rotateHandle.data = { type: 'rotate', isTool: true };
         this.drawLayer.activate();
+    }
+
+    _drawCornerWidget(seg) {
+        // Safe data initialization
+        if (!seg.data) seg.data = {};
+        
+        const p2 = seg.data.originalPoint ? new paper.Point(seg.data.originalPoint) : seg.point;
+        const p1 = (seg.previous || (seg.path.closed ? seg.path.lastSegment : null))?.point;
+        const p3 = (seg.next || (seg.path.closed ? seg.path.firstSegment : null))?.point;
+
+        if (!p1 || !p3) return;
+
+        const v1 = p1.subtract(p2).normalize();
+        const v2 = p3.subtract(p2).normalize();
+        let bisector = v1.add(v2);
+        
+        if (bisector.length < 0.01) {
+            bisector = new paper.Point(-v1.y, v1.x).normalize();
+        } else {
+            bisector = bisector.normalize();
+        }
+
+        const currentRadius = seg.data.currentRadius || 0;
+        const widgetDist = 15 + (currentRadius * 0.5); 
+        const widgetPos = p2.add(bisector.multiply(widgetDist));
+
+        const widget = new paper.Path.Circle(widgetPos, 5);
+        widget.fillColor = 'white';
+        widget.strokeColor = '#3b82f6';
+        widget.strokeWidth = 1.5;
+        widget.shadowColor = new paper.Color(0,0,0,0.2);
+        widget.shadowBlur = 4;
+        widget.data = { type: 'corner-widget', segment: seg, isTool: true };
     }
 
     updateUI() {
