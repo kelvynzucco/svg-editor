@@ -27,7 +27,8 @@ export class DirectSelectionTool {
 
             const point = event.point;
             this.isDragging = false;
-            this.activeComponent = null; // Track exactly what we clicked
+            this.activeComponent = null; 
+            this.appliedDelta = new paper.Point(0, 0); // Track cumulative delta for snapping
             window.dispatchEvent(new CustomEvent('appMouseDown'));
 
             // Precise hit test
@@ -94,10 +95,40 @@ export class DirectSelectionTool {
         this.tool.onMouseDrag = (event) => {
             if (this.dragTargets.length > 0) {
                 this.isDragging = true;
-                this.dragTargets.forEach(t => {
-                    t.x += event.delta.x;
-                    t.y += event.delta.y;
-                });
+
+                if (event.modifiers.shift) {
+                    // --- SHIFT SNAPPING LOGIC ---
+                    if (this.activeComponent && (this.activeComponent.type === 'handle-in' || this.activeComponent.type === 'handle-out')) {
+                        // Handle Snapping: Force handle to X or Y axis relative to anchor
+                        this.dragTargets.forEach(t => {
+                            t.x += event.delta.x;
+                            t.y += event.delta.y;
+                            // Snap resulting relative position
+                            if (Math.abs(t.x) > Math.abs(t.y)) t.y = 0;
+                            else t.x = 0;
+                        });
+                    } else {
+                        // Node/Item Snapping: Constrain movement to global X or Y axis
+                        let currentDelta = event.point.subtract(event.downPoint);
+                        if (Math.abs(currentDelta.x) > Math.abs(currentDelta.y)) currentDelta.y = 0;
+                        else currentDelta.x = 0;
+
+                        let incrementalDelta = currentDelta.subtract(this.appliedDelta);
+                        this.dragTargets.forEach(t => {
+                            t.x += incrementalDelta.x;
+                            t.y += incrementalDelta.y;
+                        });
+                        this.appliedDelta = currentDelta;
+                    }
+                } else {
+                    // --- NORMAL DRAGGING ---
+                    this.dragTargets.forEach(t => {
+                        t.x += event.delta.x;
+                        t.y += event.delta.y;
+                    });
+                    // Keep appliedDelta in sync to avoid jumps if Shift is pressed mid-drag
+                    this.appliedDelta = event.point.subtract(event.downPoint);
+                }
                 this.editor.view.update();
             } else if (this.startPoint) {
                 if (this.selectionRect) this.selectionRect.remove();
