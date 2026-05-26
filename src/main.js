@@ -53,8 +53,8 @@ window.addEventListener('keydown', (e) => {
     if (cmd) {
         // Refresh: Ctrl+R, Ctrl+Shift+R
         if (key === 'r') e.preventDefault();
-        // Print, Save, Open, Search, Bookmark, History, Downloads, View Source
-        if (['s', 'p', 'o', 'f', 'g', 'd', 'h', 'j', 'u', 'n', 't'].includes(key)) e.preventDefault();
+        // Print, Save, Open, Search, Bookmark, History, Downloads, View Source, Select All
+        if (['s', 'p', 'o', 'f', 'g', 'd', 'h', 'j', 'u', 'n', 't', 'a'].includes(key)) e.preventDefault();
         // DevTools: Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C
         if (shift && ['i', 'j', 'c'].includes(key)) e.preventDefault();
     }
@@ -336,14 +336,20 @@ window.addEventListener('keydown', (e) => {
         if (!isAppShortcut) return;
     }
     const key = e.key.toLowerCase();
-    if (key === 'v') setActiveTool('selection');
-    if (key === 'a') setActiveTool('directSelection');
-    if (key === 'i') setActiveTool('eyedropper');
-    if ((e.key === 'Delete' || e.key === 'Backspace') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) editor.deleteSelectedComponents();
+    const noModifiers = !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey;
+
+    if (noModifiers) {
+        if (key === 'v') setActiveTool('selection');
+        if (key === 'a') setActiveTool('directSelection');
+        if (key === 'i') setActiveTool('eyedropper');
+        if (key === 'delete' || key === 'backspace') editor.deleteSelectedComponents();
+        if (key === '[') editor.sendToBackSelected();
+        if (key === ']') editor.bringToFrontSelected();
+    }
+
+    if ((e.ctrlKey || e.metaKey) && key === 'a') { e.preventDefault(); editor.selectAll(); }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') { e.preventDefault(); editor.groupSelectedItems(); }
     if ((e.ctrlKey || e.metaKey) && e.key === 'Backspace') { e.preventDefault(); editor.ungroupSelectedItems(); }
-    if (e.key === '[') editor.sendToBackSelected();
-    if (e.key === ']') editor.bringToFrontSelected();
     if (e.shiftKey && e.key.toUpperCase() === 'H') { flip(editor.selectedItems, 'h'); editor.saveHistory(); }
     if (e.shiftKey && e.key.toUpperCase() === 'V') { flip(editor.selectedItems, 'v'); editor.saveHistory(); }
     if ((e.ctrlKey || e.metaKey) && e.key === 'c') copySelectedToClipboard();

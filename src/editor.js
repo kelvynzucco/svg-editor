@@ -352,6 +352,18 @@ export class SvgEditor {
         this.updateUI();
     }
 
+    selectAll() {
+        this.selectedItems = [];
+        this.drawLayer.children.forEach(item => {
+            if (!(item.data && item.data.isTool)) {
+                item.selected = true;
+                this.selectedItems.push(item);
+            }
+        });
+        this.updateTransformUI();
+        this.updateUI();
+    }
+
     addToSelection(item) {
         if (!item.selected) {
             item.selected = true;
@@ -463,13 +475,12 @@ export class SvgEditor {
     }
 
     roundSelectedSegments(radius) {
-        if (radius <= 0) return;
         let changed = false;
 
         this.project.selectedItems.forEach(item => {
             if (item.segments) {
-                // Collect indices of selected segments
-                // We must process from last to first to keep indices valid after removals/insertions
+                this.sharpenSelectedSegments(item);
+                
                 const selectedIndices = item.segments
                     .map((s, i) => s.selected ? i : -1)
                     .filter(i => i !== -1)
@@ -492,44 +503,99 @@ export class SvgEditor {
         }
     }
 
+    sharpenSelectedSegments(path) {
+        const processedOriginals = new Set();
+        
+        // We must loop and find segments to replace. 
+        // Using a while loop or careful indexing because path.segments changes.
+        let i = 0;
+        while (i < path.segments.length) {
+            const seg = path.segments[i];
+            if (seg.selected && seg.data && seg.data.isCornerPart && seg.data.originalPoint) {
+                const orig = new paper.Point(seg.data.originalPoint);
+                const origKey = `${orig.x.toFixed(2)},${orig.y.toFixed(2)}`;
+                
+                if (!processedOriginals.has(origKey)) {
+                    processedOriginals.add(origKey);
+                    
+                    // Find all segments belonging to this corner
+                    const indices = [];
+                    path.segments.forEach((s, idx) => {
+                        if (s.data && s.data.isCornerPart && s.data.originalPoint) {
+                            const sOrig = new paper.Point(s.data.originalPoint);
+                            if (sOrig.getDistance(orig) < 0.1) indices.push(idx);
+                        }
+                    });
+                    
+                    if (indices.length > 0) {
+                        indices.sort((a, b) => b - a);
+                        const insertIdx = indices[indices.length - 1];
+                        indices.forEach(idx => path.removeSegment(idx));
+                        const newSeg = path.insertSegment(insertIdx, orig);
+                        newSeg.selected = true;
+                        // Don't increment i, re-check at current position
+                        continue;
+                    }
+                }
+            }
+            i++;
+        }
+    }
+
     _applyRoundingToSegment(path, idx, radius) {
         const seg = path.segments[idx];
         if (!seg) return;
 
-        const pOrig = seg.point.clone();
+        const pOrig = (seg.data && seg.data.originalPoint) ? new paper.Point(seg.data.originalPoint) : seg.point.clone();
         const p1 = (seg.previous || (path.closed ? path.lastSegment : null))?.point;
         const p3 = (seg.next || (path.closed ? path.firstSegment : null))?.point;
 
         if (!p1 || !p3) return;
 
-        const v1 = p1.subtract(pOrig).normalize();
-        const v2 = p3.subtract(pOrig).normalize();
+        const d1 = p1.subtract(pOrig);
+        const d2 = p3.subtract(pOrig);
+        if (d1.length < 0.1 || d2.length < 0.1) return;
 
+        const v1 = d1.normalize();
+        const v2 = d2.normalize();
         const dot = v1.dot(v2);
         const angle = Math.acos(Math.max(-1, Math.min(1, dot))); 
         const theta = Math.PI - angle;
 
-        // Ensure radius doesn't exceed adjacent segments
+        if (theta < 0.001) return;
+
+        // Constraint: max radius is half of the shortest adjacent segment
         const maxR = Math.min(p1.subtract(pOrig).length, p3.subtract(pOrig).length) * 0.48;
         const finalR = Math.min(radius, maxR);
         
         if (finalR <= 0) return;
 
         const handleLength = finalR * (4/3) * Math.tan(theta / 4);
-
         const pA = pOrig.add(v1.multiply(finalR));
         const pB = pOrig.add(v2.multiply(finalR));
 
+        const hA = v1.multiply(-handleLength);
+        const hB = v2.multiply(-handleLength);
+
+        // Replace the single segment with two segments for the curve
+        const segA = new paper.Segment(pA, null, hA);
+        const segB = new paper.Segment(pB, hB, null);
+
+        // Preserve selection and tag data
+        const wasSelected = seg.selected;
+        segA.selected = wasSelected;
+        segB.selected = wasSelected;
+        
+        const cornerData = { 
+            isCornerPart: true, 
+            originalPoint: pOrig, 
+            currentRadius: finalR 
+        };
+        segA.data = { ...cornerData };
+        segB.data = { ...cornerData };
+
         path.removeSegment(idx);
-        const segA = path.insert(idx, pA);
-        const segB = path.insert(idx + 1, pB);
-
-        segA.handleOut = v1.multiply(-handleLength);
-        segB.handleIn = v2.multiply(-handleLength);
-
-        // Keep them selected
-        segA.selected = true;
-        segB.selected = true;
+        path.insertSegments(idx, [segA, segB]);
     }
 
     updateUI() {

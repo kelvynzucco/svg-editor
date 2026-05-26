@@ -21,33 +21,23 @@ export class DirectSelectionTool {
             const point = event.point;
             this.isDragging = false;
             this.activeComponent = null; 
-            this.startPoint = null;
-            this.appliedDelta = new paper.Point(0, 0);
             window.dispatchEvent(new CustomEvent('appMouseDown'));
 
-            // 1. Hit Test for UI Widgets (Live Corners)
+            // 1. Check for UI Widgets (Live Corners) - HIGH PRIORITY
             if (this.editor.showCornerWidgets) {
                 const uiHit = this.editor.uiLayer.hitTest(point, { tolerance: 15, fill: true, stroke: true });
                 if (uiHit && uiHit.item && uiHit.item.data && uiHit.item.data.type === 'corner-widget') {
-                    const activeSeg = uiHit.item.data.segment;
+                    const seg = uiHit.item.data.segment;
                     
-                    // PREPARE ALL SELECTED PATHS for non-destructive drag
-                    this.editor.project.selectedItems.forEach(path => {
-                        if (path.segments) {
-                            path.data.originalSegments = path.segments.map(s => ({
-                                point: s.point.clone(),
-                                handleIn: s.handleIn.clone(),
-                                handleOut: s.handleOut.clone(),
-                                selected: s.selected,
-                                data: JSON.parse(JSON.stringify(s.data || {})) // Deep copy metadata
-                            }));
-                        }
-                    });
-
+                    // Store initial reference for the drag session
                     this.activeComponent = { 
                         type: 'corner-widget', 
-                        activePath: activeSeg.path,
-                        pivotPoint: activeSeg.data.originalPoint ? new paper.Point(activeSeg.data.originalPoint) : activeSeg.point.clone()
+                        activeSegment: seg,
+                        pivotPoint: seg.data.originalPoint ? new paper.Point(seg.data.originalPoint) : seg.point.clone(),
+                        originalPathData: this.editor.project.selectedItems.map(item => ({
+                            item: item,
+                            json: item.exportJSON()
+                        }))
                     };
                     return;
                 }
@@ -62,22 +52,19 @@ export class DirectSelectionTool {
                 if (this.editor.showCornerWidgets) this.editor.deactivateCornerRounding();
                 const item = hitResult.item;
                 const type = hitResult.type;
-                const isComponent = type === 'segment' || type === 'handle-in' || type === 'handle-out';
                 
-                if (isComponent) {
+                if (type === 'segment' || type === 'handle-in' || type === 'handle-out') {
                     const target = type === 'segment' ? hitResult.segment : 
                                    (type === 'handle-in' ? hitResult.segment.handleIn : hitResult.segment.handleOut);
                     this.activeComponent = { type, target, segment: hitResult.segment };
 
                     if (event.modifiers.shift) {
                         hitResult.segment.selected = !hitResult.segment.selected;
-                        hitResult.item.selected = true;
-                    } else {
-                        if (!target.selected) {
-                            this.editor.project.deselectAll();
-                            item.selected = true;
-                            target.selected = true;
-                        }
+                        item.selected = true;
+                    } else if (!target.selected) {
+                        this.editor.project.deselectAll();
+                        item.selected = true;
+                        target.selected = true;
                     }
                 } else {
                     if (event.modifiers.shift) item.selected = !item.selected;
@@ -98,45 +85,29 @@ export class DirectSelectionTool {
         this.tool.onMouseDrag = (event) => {
             if (this.activeComponent && this.activeComponent.type === 'corner-widget') {
                 this.isDragging = true;
-                const { activePath, pivotPoint } = this.activeComponent;
+                const { activeSegment, pivotPoint, originalPathData } = this.activeComponent;
                 
-                // Radius calculation based on the dragged widget
-                const orig = activePath.data.originalSegments;
-                const firstSelIdx = activePath.segments.findIndex(s => s.selected);
-                if (firstSelIdx === -1) return;
+                // Calculate shared radius
+                const dist = event.point.subtract(pivotPoint).length;
+                const radius = Math.max(0, dist - 15); // Offset to feel better
 
-                const pPrev = (orig[firstSelIdx - 1] || (activePath.closed ? orig[orig.length-1] : null))?.point;
-                const pNext = (orig[firstSelIdx + 1] || (activePath.closed ? orig[0] : null))?.point;
-                
-                if (pPrev && pNext) {
-                    const v1 = pPrev.subtract(pivotPoint).normalize();
-                    const v2 = pNext.subtract(pivotPoint).normalize();
-                    const bisector = v1.add(v2).normalize();
-                    const dist = event.point.subtract(pivotPoint).dot(bisector);
-                    
-                    const maxRadius = Math.min(pPrev.subtract(pivotPoint).length, pNext.subtract(pivotPoint).length) * 0.45;
-                    const radius = Math.min(Math.max(0, dist - 10), maxRadius);
+                // Restore items to their pre-drag state and apply rounding
+                originalPathData.forEach(data => {
+                    const oldItem = data.item;
+                    const newItem = paper.Base.importJSON(data.json);
+                    oldItem.replaceWith(newItem);
+                    data.item = newItem; // Update reference for next frame
 
-                    // APPLY TO ALL SELECTED PATHS
-                    this.editor.project.selectedItems.forEach(path => {
-                        if (path.segments && path.data.originalSegments) {
-                            const pOrigs = path.data.originalSegments;
-                            // Restore state (with data!)
-                            path.segments = pOrigs.map(s => {
-                                const seg = new paper.Segment(s.point, s.handleIn, s.handleOut);
-                                seg.data = JSON.parse(JSON.stringify(s.data));
-                                if (s.selected) seg.selected = true;
-                                return seg;
-                            });
+                    // NEW: Ensure any previously rounded parts in the selection are sharpened before re-rounding
+                    this.editor.sharpenSelectedSegments(newItem);
 
-                            // Re-apply rounding to all selected indices
-                            const indices = path.segments.map((s, i) => s.selected ? i : -1).filter(i => i !== -1);
-                            indices.sort((a,b) => b - a).forEach(idx => {
-                                this._splitAndRound(path, idx, radius);
-                            });
-                        }
+                    // Get indices of selected segments from the restored (sharp) state
+                    const indices = newItem.segments.map((s, i) => s.selected ? i : -1).filter(i => i !== -1);
+                    indices.sort((a,b) => b - a).forEach(idx => {
+                        this.editor._applyRoundingToSegment(newItem, idx, radius);
                     });
-                }
+                });
+                
                 this.editor.view.update();
                 this.editor.updateTransformUI();
                 return;
@@ -171,12 +142,9 @@ export class DirectSelectionTool {
                 });
                 this.selectionRect.remove();
                 this.selectionRect = null;
-                this.editor.updateUI();
-                this.editor.updateTransformUI();
             }
 
             if (this.isDragging) {
-                this.editor.project.selectedItems.forEach(item => { if (item.data) delete item.data.originalSegments; });
                 this.editor.saveHistory();
             }
 
@@ -186,35 +154,8 @@ export class DirectSelectionTool {
             this.isDragging = false;
             this.editor.view.update();
             this.editor.updateTransformUI();
+            this.editor.updateUI();
         };
-    }
-
-    _splitAndRound(path, idx, radius) {
-        if (radius <= 0) return;
-        const seg = path.segments[idx];
-        const pOrig = seg.point.clone();
-        const origSegs = path.data.originalSegments;
-        const p1 = (origSegs[idx - 1] || (path.closed ? origSegs[origSegs.length - 1] : null))?.point;
-        const p3 = (origSegs[idx + 1] || (path.closed ? origSegs[0] : null))?.point;
-        if (!p1 || !p3) return;
-        const v1 = p1.subtract(pOrig).normalize();
-        const v2 = p3.subtract(pOrig).normalize();
-        const dot = v1.dot(v2);
-        const angle = Math.acos(Math.max(-1, Math.min(1, dot))); 
-        const theta = Math.PI - angle;
-        const handleLength = radius * (4/3) * Math.tan(theta / 4);
-        const pA = pOrig.add(v1.multiply(radius));
-        const pB = pOrig.add(v2.multiply(radius));
-        path.removeSegment(idx);
-        const segA = path.insert(idx, pA);
-        const segB = path.insert(idx + 1, pB);
-        segA.handleOut = v1.multiply(-handleLength);
-        segB.handleIn = v2.multiply(-handleLength);
-        segA.data.originalPoint = { x: pOrig.x, y: pOrig.y };
-        segA.data.currentRadius = radius;
-        segA.data.isCornerPart = true;
-        segA.selected = true;
-        segB.selected = true;
     }
 
     _refreshDragTargets() {
