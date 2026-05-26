@@ -69,19 +69,6 @@ const confirmModal = document.getElementById('confirm-modal');
 const cancelClearBtn = document.getElementById('cancel-clear');
 const confirmClearBtn = document.getElementById('confirm-clear');
 
-// Context Menu Elements
-const contextMenu = document.getElementById('context-menu');
-const ctxDeleteBtn = document.getElementById('ctx-delete');
-const ctxCopyBtn = document.getElementById('ctx-copy');
-const ctxDownloadBtn = document.getElementById('ctx-download');
-const ctxDuplicateBtn = document.getElementById('ctx-duplicate');
-const ctxFlipHBtn = document.getElementById('ctx-flip-h');
-const ctxFlipVBtn = document.getElementById('ctx-flip-v');
-const ctxFrontBtn = document.getElementById('ctx-front');
-const ctxBackBtn = document.getElementById('ctx-back');
-const ctxGroupBtn = document.getElementById('ctx-group');
-const ctxUngroupBtn = document.getElementById('ctx-ungroup');
-
 // Alignment Buttons mapping
 const alignBtns = {
     left: document.getElementById('align-left'),
@@ -383,50 +370,77 @@ window.addEventListener('paste', async (e) => {
     }
 });
 
+// Context Menu Elements
+const contextMenu = document.getElementById('context-menu');
+const canvasContextMenu = document.getElementById('canvas-context-menu');
+const ctxClearCanvasBtn = document.getElementById('ctx-clear-canvas');
+
+const ctxDeleteBtn = document.getElementById('ctx-delete');
+const ctxCopyBtn = document.getElementById('ctx-copy');
+const ctxDownloadBtn = document.getElementById('ctx-download');
+const ctxDuplicateBtn = document.getElementById('ctx-duplicate');
+const ctxFlipHBtn = document.getElementById('ctx-flip-h');
+const ctxFlipVBtn = document.getElementById('ctx-flip-v');
+const ctxFrontBtn = document.getElementById('ctx-front');
+const ctxBackBtn = document.getElementById('ctx-back');
+const ctxGroupBtn = document.getElementById('ctx-group');
+const ctxUngroupBtn = document.getElementById('ctx-ungroup');
+
+// Helper to position menus within window
+function positionMenu(menu, e) {
+    menu.classList.remove('hidden');
+    const menuWidth = menu.offsetWidth;
+    const menuHeight = menu.offsetHeight;
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    
+    let left = e.clientX;
+    let top = e.clientY;
+    
+    if (left + menuWidth > windowWidth) left = windowWidth - menuWidth - 10;
+    if (top + menuHeight > windowHeight) top = windowHeight - menuHeight - 10;
+    
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+}
+
 // Context Menu Logic
 editor.canvas.addEventListener('contextmenu', (e) => {
     e.preventDefault();
+    contextMenu.classList.add('hidden');
+    canvasContextMenu.classList.add('hidden');
+
     const rect = editor.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     const point = editor.view.viewToProject(new paper.Point(x, y));
+    
     const hitResult = editor.project.hitTest(point, { segments: true, stroke: true, fill: true, tolerance: 10, curves: true });
+    
     if (hitResult && hitResult.item) {
         let item = hitResult.item;
         while (item.parent && item.parent !== editor.drawLayer) item = item.parent;
+        
         if (!item.selected) editor.setSelected(item);
-    }
-    if (editor.selectedItem) {
-        const hasGroup = editor.selectedItems.some(item => item instanceof paper.Group);
+        
+        const hasGroup = editor.selectedItems.some(i => i instanceof paper.Group);
         hasGroup ? ctxUngroupBtn.classList.remove('hidden') : ctxUngroupBtn.classList.add('hidden');
-        
-        // Show menu first to get its dimensions
-        contextMenu.classList.remove('hidden');
-        
-        const menuWidth = contextMenu.offsetWidth;
-        const menuHeight = contextMenu.offsetHeight;
-        const windowWidth = window.innerWidth;
-        const windowHeight = window.innerHeight;
-        
-        let left = e.clientX;
-        let top = e.clientY;
-        
-        // Adjust if it goes off right
-        if (left + menuWidth > windowWidth) {
-            left = windowWidth - menuWidth - 10;
-        }
-        
-        // Adjust if it goes off bottom
-        if (top + menuHeight > windowHeight) {
-            top = windowHeight - menuHeight - 10;
-        }
-        
-        contextMenu.style.left = `${left}px`;
-        contextMenu.style.top = `${top}px`;
+        positionMenu(contextMenu, e);
+    } else {
+        editor.setSelected(null);
+        positionMenu(canvasContextMenu, e);
     }
 });
 
-window.addEventListener('click', () => { contextMenu.classList.add('hidden'); });
+window.addEventListener('click', () => { 
+    contextMenu.classList.add('hidden'); 
+    canvasContextMenu.classList.add('hidden');
+});
+
+ctxClearCanvasBtn.addEventListener('click', () => {
+    confirmModal.classList.remove('hidden');
+    canvasContextMenu.classList.add('hidden');
+});
 
 ctxDeleteBtn.addEventListener('click', () => { editor.deleteSelectedItem(); contextMenu.classList.add('hidden'); });
 
@@ -450,6 +464,7 @@ ctxFrontBtn.addEventListener('click', () => { editor.bringToFrontSelected(); con
 ctxBackBtn.addEventListener('click', () => { editor.sendToBackSelected(); contextMenu.classList.add('hidden'); });
 ctxGroupBtn.addEventListener('click', () => { editor.groupSelectedItems(); contextMenu.classList.add('hidden'); });
 ctxUngroupBtn.addEventListener('click', () => { editor.ungroupSelectedItems(); contextMenu.classList.add('hidden'); });
+
 
 // Header Handlers
 importFileBtn.addEventListener('click', () => importFileInput.click());

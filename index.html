@@ -416,11 +416,12 @@
 
     <script type="module" src="/src/main.js"></script>
 
-    <!-- Context Menu -->
+    <!-- Item Context Menu -->
     <div
       id="context-menu"
       class="fixed hidden overflow-hidden bg-white border border-gray-200 shadow-xl shadow-black/4 rounded-xl z-60 min-w-50"
     >
+      <!-- ... existing buttons ... -->
       <button
         id="ctx-copy"
         class="w-full flex justify-between items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition border-b border-gray-100"
@@ -489,6 +490,19 @@
       >
         <span>Delete</span>
         <span class="text-xs text-red-300 ml-4 font-mono">Del</span>
+      </button>
+    </div>
+
+    <!-- Canvas Context Menu -->
+    <div
+      id="canvas-context-menu"
+      class="fixed hidden overflow-hidden bg-white border border-gray-200 shadow-xl shadow-black/4 rounded-xl z-60 min-w-40"
+    >
+      <button
+        id="ctx-clear-canvas"
+        class="w-full flex justify-between items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100 transition"
+      >
+        <span>Clear Canvas</span>
       </button>
     </div>
 
