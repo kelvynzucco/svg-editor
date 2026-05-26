@@ -91,9 +91,21 @@ selectionToolBtn.addEventListener('click', () => setActiveTool('selection'));
 eyedropperToolBtn.addEventListener('click', () => setActiveTool('eyedropper'));
 
 // UI Elements - Sidebar Export
+const exportBtn = document.getElementById('export-btn');
+const exportMenu = document.getElementById('export-menu');
 const exportFileBtn = document.getElementById('export-file');
 const copyCodeBtn = document.getElementById('copy-code');
 const clearCanvasBtn = document.getElementById('clear-canvas');
+
+exportBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    exportMenu.classList.toggle('hidden');
+});
+
+// Auto-close export menu
+window.addEventListener('click', () => {
+    exportMenu.classList.add('hidden');
+});
 
 // Modals
 const codeModal = document.getElementById('code-modal');
@@ -622,7 +634,7 @@ confirmCodeBtn.addEventListener('click', () => {
 
 // Alignment Handlers
 Object.entries(alignBtns).forEach(([pos, btn]) => {
-    if (btn) btn.addEventListener('click', () => { align(editor.selectedItems, pos, editor.project.view); editor.updateTransformUI(); editor.saveHistory(); });
+    if (btn) btn.addEventListener('click', () => { align(editor.selectedItems, pos, editor.artboardBounds); editor.updateTransformUI(); editor.saveHistory(); });
 });
 
 // Export Handlers

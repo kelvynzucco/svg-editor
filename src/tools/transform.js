@@ -1,34 +1,33 @@
 import paper from 'paper';
 
-export function align(items, position, view) {
+export function align(items, position, contextBounds) {
     if (!items || items.length === 0) return;
 
     const itemsArray = Array.isArray(items) ? items : [items];
     
     if (itemsArray.length === 1) {
-        // --- Single item: Align relative to the Canvas (View) ---
+        // --- Single item: Align relative to the Artboard/Context Bounds ---
         const item = itemsArray[0];
         const bounds = item.bounds;
-        const viewBounds = view.bounds;
 
         switch (position) {
             case 'left':
-                item.position.x = viewBounds.left + bounds.width / 2;
+                item.position.x = contextBounds.left + bounds.width / 2;
                 break;
             case 'h-center':
-                item.position.x = view.center.x;
+                item.position.x = contextBounds.center.x;
                 break;
             case 'right':
-                item.position.x = viewBounds.right - bounds.width / 2;
+                item.position.x = contextBounds.right - bounds.width / 2;
                 break;
             case 'top':
-                item.position.y = viewBounds.top + bounds.height / 2;
+                item.position.y = contextBounds.top + bounds.height / 2;
                 break;
             case 'v-center':
-                item.position.y = view.center.y;
+                item.position.y = contextBounds.center.y;
                 break;
             case 'bottom':
-                item.position.y = viewBounds.bottom - bounds.height / 2;
+                item.position.y = contextBounds.bottom - bounds.height / 2;
                 break;
         }
     } else {

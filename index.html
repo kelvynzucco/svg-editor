@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Traço - Minimal SVG editor</title>
+    <title>Minimal SVG editor</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -32,23 +32,55 @@
             />
           </svg> -->
         </div>
-        <h1 class="font-black text-lg tracking-tight">
-          TRAÇO
-          <!-- <span class="font-medium">- Minimal SVG Editor</span> -->
-        </h1>
+        <h1 class="font-black text-lg tracking-tight">Minimal SVG</h1>
       </div>
       <div class="flex items-center gap-2">
         <button
           id="import-file-btn"
-          class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded transition text-sm font-medium"
+          class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded transition text-sm font-medium flex items-center gap-2"
         >
-          Import File
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="lucide lucide-file-up"
+          >
+            <path
+              d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"
+            />
+            <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+            <path d="M12 12v6" />
+            <path d="m15 15-3-3-3 3" />
+          </svg>
+          <span>Import File</span>
         </button>
         <button
           id="import-code-btn"
-          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition text-sm font-medium"
+          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition text-sm font-medium flex items-center gap-2"
         >
-          Import &lt;code/&gt;
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="lucide lucide-code-2"
+          >
+            <path d="m18 16 4-4-4-4" />
+            <path d="m6 8-4 4 4 4" />
+            <path d="m14.5 4-5 16" />
+          </svg>
+          <span>Import Code</span>
         </button>
         <button
           id="toggle-lock"
@@ -56,10 +88,38 @@
           title="Toggle Browser Shortcuts Lock"
         >
           <div id="lock-icon-unlocked" class="hidden">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-unlock"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="lucide lucide-unlock"
+            >
+              <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 9.9-1" />
+            </svg>
           </div>
           <div id="lock-icon-locked" class="text-orange-600">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-lock"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="lucide lucide-lock"
+            >
+              <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
           </div>
         </button>
         <input type="file" id="import-file" class="hidden" accept=".svg" />
@@ -160,62 +220,71 @@
       <aside
         class="w-64 bg-white border-l border-black/10 p-6 flex flex-col gap-8 overflow-y-auto scrollbar-hide"
       >
-        <section>
+          <section>
           <h2
             class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3"
           >
             Alignment
           </h2>
-          <div class="grid grid-cols-3 gap-2">
-            <button
-              id="align-left"
-              class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-1 py-2 rounded text-[10px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200 focus:outline-none"
-              title="Align Left"
-              disabled
-            >
-              Left
-            </button>
-            <button
-              id="align-h-center"
-              class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-1 py-2 rounded text-[10px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200 focus:outline-none"
-              title="Horizontal Center"
-              disabled
-            >
-              H-Center
-            </button>
-            <button
-              id="align-right"
-              class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-1 py-2 rounded text-[10px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200 focus:outline-none"
-              title="Align Right"
-              disabled
-            >
-              Right
-            </button>
+          <div class="flex items-center gap-1">
+            <!-- Horizontal Alignment Group -->
+            <div class="flex gap-1">
+              <button
+                id="align-left"
+                class="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded transition disabled:opacity-30 disabled:cursor-not-allowed border border-gray-200 focus:outline-none flex items-center justify-center"
+                title="Align Left"
+                disabled
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="12" height="6" x="8" y="6" rx="1"/><rect width="7" height="6" x="8" y="14" rx="1"/><path d="M4 2v20"/></svg>
+              </button>
+              <button
+                id="align-h-center"
+                class="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded transition disabled:opacity-30 disabled:cursor-not-allowed border border-gray-200 focus:outline-none flex items-center justify-center"
+                title="Horizontal Center"
+                disabled
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="12" height="6" x="6" y="4" rx="1"/><rect width="7" height="6" x="8.5" y="14" rx="1"/><path d="M12 2v2"/><path d="M12 10v4"/><path d="M12 20v2"/></svg>
+              </button>
+              <button
+                id="align-right"
+                class="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded transition disabled:opacity-30 disabled:cursor-not-allowed border border-gray-200 focus:outline-none flex items-center justify-center"
+                title="Align Right"
+                disabled
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="12" height="6" x="4" y="6" rx="1"/><rect width="7" height="6" x="9" y="14" rx="1"/><path d="M20 2v20"/></svg>
+              </button>
+            </div>
 
-            <button
-              id="align-top"
-              class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-1 py-2 rounded text-[10px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200 focus:outline-none"
-              title="Align Top"
-              disabled
-            >
-              Top
-            </button>
-            <button
-              id="align-v-center"
-              class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-1 py-2 rounded text-[10px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200 focus:outline-none"
-              title="Vertical Center"
-              disabled
-            >
-              V-Center
-            </button>
-            <button
-              id="align-bottom"
-              class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-1 py-2 rounded text-[10px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200 focus:outline-none"
-              title="Align Bottom"
-              disabled
-            >
-              Bottom
-            </button>
+            <!-- Separator -->
+            <div class="w-2"></div>
+
+            <!-- Vertical Alignment Group -->
+            <div class="flex gap-1">
+              <button
+                id="align-top"
+                class="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded transition disabled:opacity-30 disabled:cursor-not-allowed border border-gray-200 focus:outline-none flex items-center justify-center"
+                title="Align Top"
+                disabled
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="6" height="12" x="6" y="8" rx="1"/><rect width="6" height="7" x="14" y="8" rx="1"/><path d="M2 4h20"/></svg>
+              </button>
+              <button
+                id="align-v-center"
+                class="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded transition disabled:opacity-30 disabled:cursor-not-allowed border border-gray-200 focus:outline-none flex items-center justify-center"
+                title="Vertical Center"
+                disabled
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="6" height="12" x="4" y="6" rx="1"/><rect width="6" height="7" x="14" y="8.5" rx="1"/><path d="M2 12h2"/><path d="M10 12h4"/><path d="M20 12h2"/></svg>
+              </button>
+              <button
+                id="align-bottom"
+                class="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded transition disabled:opacity-30 disabled:cursor-not-allowed border border-gray-200 focus:outline-none flex items-center justify-center"
+                title="Align Bottom"
+                disabled
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="6" height="12" x="6" y="4" rx="1"/><rect width="6" height="7" x="14" y="9" rx="1"/><path d="M2 20h20"/></svg>
+              </button>
+            </div>
           </div>
         </section>
 
@@ -362,23 +431,73 @@
         </section>
 
         <section class="mt-auto border-t pt-6 border-black/10">
-          <h2
-            class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3"
-          >
-            Export
-          </h2>
-          <div class="flex flex-col gap-2">
-            <button
-              id="export-file"
-              class="bg-green-600 hover:bg-green-700 text-white px-2 py-2 rounded transition text-sm focus:outline-none"
+          <div class="flex flex-col gap-2 relative">
+            <div
+              id="export-menu"
+              class="absolute bottom-full left-0 right-0 mb-2 bg-white border border-black/10 rounded-lg shadow-xl hidden overflow-hidden z-30"
             >
-              Save Artboard to .svg
-            </button>
+              <button
+                id="export-file"
+                class="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition border-b border-gray-100 flex items-center gap-2 focus:outline-none"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="text-green-600"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" x2="12" y1="15" y2="3" />
+                </svg>
+                <span>Save as .svg</span>
+              </button>
+              <button
+                id="copy-code"
+                class="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition flex items-center gap-2 focus:outline-none"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="text-indigo-600"
+                >
+                  <polyline points="16 18 22 12 16 6" />
+                  <polyline points="8 6 2 12 8 18" />
+                </svg>
+                <span>Copy as Code</span>
+              </button>
+            </div>
             <button
-              id="copy-code"
-              class="bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-2 rounded transition text-sm focus:outline-none"
+              id="export-btn"
+              class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-2.5 rounded transition text-sm font-medium focus:outline-none flex items-center justify-center gap-2"
             >
-              Copy Artboard to &lt;code/&gt;
+              <span>Export Artboard</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="m18 15-6-6-6 6" />
+              </svg>
             </button>
             <button
               id="clear-canvas"
