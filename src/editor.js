@@ -582,6 +582,9 @@ export class SvgEditor {
             this.currentToolName = name;
             this.tools[name].activate();
             
+            // Refresh visual handles for the new tool
+            this.updateTransformUI();
+
             // UI Feedback
             if (name === 'eyedropper') {
                 this.canvas.style.cursor = 'crosshair';
@@ -638,6 +641,13 @@ export class SvgEditor {
     updateTransformUI() {
         if (!this.uiLayer) return;
         this.uiLayer.clear();
+        
+        // ONLY show scale/rotate handles if the Selection tool is active
+        if (this.currentToolName !== 'selection') {
+            this.drawLayer.activate();
+            return;
+        }
+
         const bounds = this.getSelectionBounds();
         if (!bounds || this.selectedItems.length === 0) {
             this.drawLayer.activate();
