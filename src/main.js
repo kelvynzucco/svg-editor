@@ -105,6 +105,9 @@ const sOpVal = document.getElementById('stroke-opacity-val');
 
 const sWidth = document.getElementById('stroke-width');
 
+const removeFillBtn = document.getElementById('remove-fill');
+const removeStrokeBtn = document.getElementById('remove-stroke');
+
 const pContainer = document.getElementById('picker-container');
 
 // PREEMPTIVE COMMIT LOGIC
@@ -150,6 +153,7 @@ sharedPicker.onChange = (color) => {
         sHex.value = hex;
         editor.applyStyle('strokeColor', hex, false);
     }
+    updateSidebarUI();
 };
 
 const openPicker = (e, type) => {
@@ -291,6 +295,17 @@ sWidth.addEventListener('input', (e) => {
 });
 sWidth.addEventListener('change', (e) => {
     editor.applyStyle('strokeWidth', e.target.value, true);
+    updateSidebarUI();
+});
+
+removeFillBtn.addEventListener('click', () => {
+    editor.applyStyle('fillColor', 'none', true);
+    updateSidebarUI();
+});
+
+removeStrokeBtn.addEventListener('click', () => {
+    editor.applyStyle('strokeColor', 'none', false);
+    editor.applyStyle('strokeWidth', 0, true);
     updateSidebarUI();
 });
 

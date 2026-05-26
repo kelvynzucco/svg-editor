@@ -576,9 +576,9 @@ export class SvgEditor {
                 item.children.forEach(child => setRecursive(child, prop, val));
             } else {
                 if (prop === 'fillColor') {
-                    item.fillColor = val;
+                    item.fillColor = (val === 'none') ? null : val;
                 } else if (prop === 'strokeColor') {
-                    item.strokeColor = val;
+                    item.strokeColor = (val === 'none') ? null : val;
                     if (val && val !== 'none' && (item.strokeWidth === 0 || !item.strokeWidth)) {
                         item.strokeWidth = 1;
                     }
