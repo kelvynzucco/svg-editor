@@ -55,6 +55,18 @@ export class SvgEditor {
         // Navigation state
         this.isPanning = false;
         this.lastPoint = null;
+
+        this.showCornerWidgets = false; // Toggle for Live Corners
+    }
+
+    activateCornerRounding() {
+        this.showCornerWidgets = true;
+        this.updateTransformUI();
+    }
+
+    deactivateCornerRounding() {
+        this.showCornerWidgets = false;
+        this.updateTransformUI();
     }
 
     renderArtboard() {
@@ -398,27 +410,33 @@ export class SvgEditor {
             }
         }
 
-        // --- Direct Selection Tool UI (Live Corners) ---
-        if (this.currentToolName === 'directSelection') {
+        if (this.showCornerWidgets && this.currentToolName === 'directSelection') {
             this.uiLayer.activate();
             this.project.selectedItems.forEach(item => {
                 if (item.segments) {
                     item.segments.forEach(seg => {
+                        // Only draw widget if the segment is selected AND:
+                        // 1. It's a sharp corner (no originalPoint yet)
+                        // 2. OR it's the primary part of an existing rounded corner (isCornerPart)
                         if (seg.selected) {
-                            this._drawCornerWidget(seg);
+                            const isExistingRounded = seg.data && seg.data.isCornerPart;
+                            const isSharp = !seg.data || !seg.data.originalPoint;
+                            
+                            if (isSharp || isExistingRounded) {
+                                this._drawCornerWidget(seg);
+                            }
                         }
                     });
                 }
             });
         }
 
+        // Direct Selection handles (nodes/handles) are handled by Paper.js's item.selected property
         this.drawLayer.activate();
     }
 
     _drawCornerWidget(seg) {
-        // Safe data initialization
         if (!seg.data) seg.data = {};
-        
         const p2 = seg.data.originalPoint ? new paper.Point(seg.data.originalPoint) : seg.point;
         const p1 = (seg.previous || (seg.path.closed ? seg.path.lastSegment : null))?.point;
         const p3 = (seg.next || (seg.path.closed ? seg.path.firstSegment : null))?.point;
@@ -428,12 +446,8 @@ export class SvgEditor {
         const v1 = p1.subtract(p2).normalize();
         const v2 = p3.subtract(p2).normalize();
         let bisector = v1.add(v2);
-        
-        if (bisector.length < 0.01) {
-            bisector = new paper.Point(-v1.y, v1.x).normalize();
-        } else {
-            bisector = bisector.normalize();
-        }
+        if (bisector.length < 0.01) bisector = new paper.Point(-v1.y, v1.x).normalize();
+        else bisector = bisector.normalize();
 
         const currentRadius = seg.data.currentRadius || 0;
         const widgetDist = 15 + (currentRadius * 0.5); 
@@ -446,6 +460,76 @@ export class SvgEditor {
         widget.shadowColor = new paper.Color(0,0,0,0.2);
         widget.shadowBlur = 4;
         widget.data = { type: 'corner-widget', segment: seg, isTool: true };
+    }
+
+    roundSelectedSegments(radius) {
+        if (radius <= 0) return;
+        let changed = false;
+
+        this.project.selectedItems.forEach(item => {
+            if (item.segments) {
+                // Collect indices of selected segments
+                // We must process from last to first to keep indices valid after removals/insertions
+                const selectedIndices = item.segments
+                    .map((s, i) => s.selected ? i : -1)
+                    .filter(i => i !== -1)
+                    .sort((a, b) => b - a);
+
+                if (selectedIndices.length > 0) {
+                    selectedIndices.forEach(idx => {
+                        this._applyRoundingToSegment(item, idx, radius);
+                    });
+                    changed = true;
+                }
+            }
+        });
+
+        if (changed) {
+            this.selectedItems = this.project.selectedItems.filter(i => !(i.data && i.data.isTool));
+            this.updateTransformUI();
+            this.updateUI();
+            this.saveHistory();
+        }
+    }
+
+    _applyRoundingToSegment(path, idx, radius) {
+        const seg = path.segments[idx];
+        if (!seg) return;
+
+        const pOrig = seg.point.clone();
+        const p1 = (seg.previous || (path.closed ? path.lastSegment : null))?.point;
+        const p3 = (seg.next || (path.closed ? path.firstSegment : null))?.point;
+
+        if (!p1 || !p3) return;
+
+        const v1 = p1.subtract(pOrig).normalize();
+        const v2 = p3.subtract(pOrig).normalize();
+
+        const dot = v1.dot(v2);
+        const angle = Math.acos(Math.max(-1, Math.min(1, dot))); 
+        const theta = Math.PI - angle;
+
+        // Ensure radius doesn't exceed adjacent segments
+        const maxR = Math.min(p1.subtract(pOrig).length, p3.subtract(pOrig).length) * 0.48;
+        const finalR = Math.min(radius, maxR);
+        
+        if (finalR <= 0) return;
+
+        const handleLength = finalR * (4/3) * Math.tan(theta / 4);
+
+        const pA = pOrig.add(v1.multiply(finalR));
+        const pB = pOrig.add(v2.multiply(finalR));
+
+        path.removeSegment(idx);
+        const segA = path.insert(idx, pA);
+        const segB = path.insert(idx + 1, pB);
+
+        segA.handleOut = v1.multiply(-handleLength);
+        segB.handleIn = v2.multiply(-handleLength);
+
+        // Keep them selected
+        segA.selected = true;
+        segB.selected = true;
     }
 
     updateUI() {
