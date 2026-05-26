@@ -339,7 +339,16 @@ export class SvgEditor {
                 } else if (handleType.startsWith('scale-')) {
                     isScaling = true;
                     const bounds = this.getSelectionBounds();
-                    transformRef = { bounds: bounds.clone(), startPoint: point, pivot: bounds[this.getOppositeCorner(handleType)], totalScaleX: 1, totalScaleY: 1 };
+                    const cornerPivot = bounds[this.getOppositeCorner(handleType)];
+                    transformRef = { 
+                        bounds: bounds.clone(), 
+                        startPoint: point, 
+                        pivot: cornerPivot,
+                        center: bounds.center.clone(),
+                        totalScaleX: 1, 
+                        totalScaleY: 1,
+                        lastPivot: cornerPivot
+                    };
                     return;
                 }
             }
@@ -389,25 +398,35 @@ export class SvgEditor {
                     this.updateTransformUI();
                 }
             } else if (isScaling) {
-                const pivot = transformRef.pivot;
-                const startVec = transformRef.startPoint.subtract(pivot);
-                const currentVec = event.point.subtract(pivot);
+                const currentPivot = event.modifiers.alt ? transformRef.center : transformRef.pivot;
+                const startVec = transformRef.startPoint.subtract(currentPivot);
+                const currentVec = event.point.subtract(currentPivot);
+                
                 if (Math.abs(startVec.x) < 0.001 || Math.abs(startVec.y) < 0.001) return;
+                
                 let desiredScaleX = currentVec.x / startVec.x;
                 let desiredScaleY = currentVec.y / startVec.y;
+                
                 if (event.modifiers.shift) {
                     const uniformScale = Math.max(Math.abs(desiredScaleX), Math.abs(desiredScaleY));
                     desiredScaleX = (desiredScaleX < 0 ? -1 : 1) * uniformScale;
                     desiredScaleY = (desiredScaleY < 0 ? -1 : 1) * uniformScale;
                 }
+                
                 if (Math.abs(desiredScaleX) < 0.01) desiredScaleX = desiredScaleX < 0 ? -0.01 : 0.01;
                 if (Math.abs(desiredScaleY) < 0.01) desiredScaleY = desiredScaleY < 0 ? -0.01 : 0.01;
-                const incrementalScaleX = desiredScaleX / transformRef.totalScaleX;
-                const incrementalScaleY = desiredScaleY / transformRef.totalScaleY;
-                if (incrementalScaleX !== 1 || incrementalScaleY !== 1) {
-                    this.selectedItems.forEach(item => item.scale(incrementalScaleX, incrementalScaleY, pivot));
+
+                if (desiredScaleX !== transformRef.totalScaleX || desiredScaleY !== transformRef.totalScaleY || !currentPivot.equals(transformRef.lastPivot)) {
+                    this.selectedItems.forEach(item => {
+                        // 1. Revert previous incremental transformation relative to its pivot
+                        item.scale(1 / transformRef.totalScaleX, 1 / transformRef.totalScaleY, transformRef.lastPivot);
+                        // 2. Apply new total transformation relative to the current pivot
+                        item.scale(desiredScaleX, desiredScaleY, currentPivot);
+                    });
+                    
                     transformRef.totalScaleX = desiredScaleX;
                     transformRef.totalScaleY = desiredScaleY;
+                    transformRef.lastPivot = currentPivot;
                     this.updateTransformUI();
                 }
             } else if (isDragging) {
