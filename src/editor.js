@@ -20,6 +20,9 @@ export class SvgEditor {
         this.uiLayer = new paper.Layer({ name: 'ui-layer' });
         this.uiLayer.data.isTool = true;
 
+        this.artboardLayer = new paper.Layer({ name: 'artboard-layer' });
+        this.artboardLayer.sendToBack();
+
         this.drawLayer = new paper.Layer({ name: 'draw-layer' });
         this.drawLayer.activate();
 
@@ -30,20 +33,38 @@ export class SvgEditor {
         this.currentToolName = 'selection';
         this.tools.selection.activate();
 
+        this.artboardBounds = new paper.Rectangle(0, 0, 800, 800);
+
         this.resize();
         window.addEventListener('resize', () => this.resize());
         
         this.loadFromLocalStorage();
         this.saveHistory();
         
+        // Initial artboard positioning
+        this.artboardBounds.center = this.view.center;
+        this.renderArtboard();
+
         // Navigation state
         this.isPanning = false;
         this.lastPoint = null;
     }
 
+    renderArtboard() {
+        this.artboardLayer.clear();
+        this.artboardLayer.activate();
+        const rect = new paper.Path.Rectangle(this.artboardBounds);
+        rect.fillColor = 'white';
+        rect.shadowColor = new paper.Color(0, 0, 0, 0.1);
+        rect.shadowBlur = 15;
+        rect.shadowOffset = new paper.Point(0, 4);
+        rect.data.isArtboard = true;
+        this.drawLayer.activate();
+    }
+
     resetView() {
         this.view.zoom = 1;
-        this.view.center = new paper.Point(this.canvas.width / 2, this.canvas.height / 2);
+        this.view.center = this.artboardBounds.center;
         this.updateTransformUI();
     }
 
@@ -94,6 +115,14 @@ export class SvgEditor {
         const selected = [...this.selectedItems];
         this.project.deselectAll();
         
+        // Temporarily store artboard state in data to persist size/position in JSON
+        this.artboardLayer.data.bounds = { 
+            x: this.artboardBounds.x, 
+            y: this.artboardBounds.y, 
+            width: this.artboardBounds.width, 
+            height: this.artboardBounds.height 
+        };
+
         const json = this.project.exportJSON();
         
         selected.forEach(item => item.selected = true);
@@ -116,6 +145,14 @@ export class SvgEditor {
                 this.project.clear();
                 this.project.importJSON(savedWork);
                 this._restoreLayers();
+                
+                // Restore artboard bounds from metadata if exists
+                if (this.artboardLayer.data && this.artboardLayer.data.bounds) {
+                    const b = this.artboardLayer.data.bounds;
+                    this.artboardBounds = new paper.Rectangle(b.x, b.y, b.width, b.height);
+                }
+                this.renderArtboard();
+                
                 this.isRestoring = false;
             } catch (err) {
                 console.error('Failed to load:', err);
@@ -131,11 +168,17 @@ export class SvgEditor {
         if (!this.drawLayer) {
             this.drawLayer = new paper.Layer({ name: 'draw-layer' });
             this.project.layers.forEach(l => {
-                if (l !== this.drawLayer) {
+                if (l !== this.drawLayer && l.name !== 'artboard-layer') {
                     this.drawLayer.addChildren(Array.from(l.children));
                     l.remove();
                 }
             });
+        }
+
+        this.artboardLayer = this.project.layers.find(l => l.name === 'artboard-layer');
+        if (!this.artboardLayer) {
+            this.artboardLayer = new paper.Layer({ name: 'artboard-layer' });
+            this.artboardLayer.sendToBack();
         }
         
         this.uiLayer = new paper.Layer({ name: 'ui-layer' });
@@ -791,12 +834,25 @@ export class SvgEditor {
     }
 
     getSVGString() {
-        const viewSize = this.view.viewSize;
-        const rootSvg = this._createCleanRoot(viewSize.width, viewSize.height);
-        this.drawLayer.children.forEach(item => {
-            if (item.data && item.data.isTool) return;
+        const bounds = this.artboardBounds;
+        const rootSvg = this._createCleanRoot(bounds.width, bounds.height);
+        
+        // Filter out tool/UI items and clone valid items for temporary translation
+        const clones = this.drawLayer.children
+            .filter(item => !(item.data && item.data.isTool))
+            .map(item => item.clone({ insert: false }));
+            
+        if (clones.length === 0) return rootSvg.outerHTML;
+
+        // Group clones to translate them to artboard local space (0,0)
+        const tempGroup = new paper.Group(clones);
+        tempGroup.translate(bounds.topLeft.multiply(-1));
+        
+        tempGroup.children.forEach(item => {
             rootSvg.appendChild(this._sanitizeElement(item.exportSVG()));
         });
+        
+        tempGroup.remove();
         this._flattenRedundantContainers(rootSvg);
         return rootSvg.outerHTML;
     }
@@ -884,7 +940,14 @@ export class SvgEditor {
                     
                     // Center the imported items as a whole
                     const tempGroup = new paper.Group(addedItems);
-                    tempGroup.position = this.view.center;
+                    
+                    // Adjust artboard to match imported SVG size
+                    const bounds = tempGroup.strokeBounds;
+                    this.artboardBounds = new paper.Rectangle(0, 0, bounds.width, bounds.height);
+                    this.artboardBounds.center = this.view.center;
+                    this.renderArtboard();
+
+                    tempGroup.position = this.artboardBounds.center;
                     
                     // Unwrap temp group
                     const finalItems = [...tempGroup.children];
