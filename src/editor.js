@@ -35,6 +35,37 @@ export class SvgEditor {
         
         this.loadFromLocalStorage();
         this.saveHistory();
+        
+        // Navigation state
+        this.isPanning = false;
+        this.lastPoint = null;
+    }
+
+    resetView() {
+        this.view.zoom = 1;
+        this.view.center = new paper.Point(this.canvas.width / 2, this.canvas.height / 2);
+        this.updateTransformUI();
+    }
+
+    zoom(delta, center) {
+        const factor = 1.1;
+        const newZoom = delta > 0 ? this.view.zoom / factor : this.view.zoom * factor;
+        
+        // Clamp zoom between 0.05 and 50
+        if (newZoom < 0.05 || newZoom > 50) return;
+
+        const beta = this.view.zoom / newZoom;
+        const pc = center.subtract(this.view.center);
+        const offset = center.subtract(pc.multiply(beta)).subtract(this.view.center);
+
+        this.view.zoom = newZoom;
+        this.view.center = this.view.center.add(offset);
+        this.updateTransformUI();
+    }
+
+    pan(delta) {
+        this.view.center = this.view.center.subtract(delta);
+        this.updateTransformUI();
     }
 
     // Generates a simple unique ID for tracking items across JSON import/export

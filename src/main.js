@@ -37,18 +37,6 @@ function setActiveTool(toolName) {
 selectionToolBtn.addEventListener('click', () => setActiveTool('selection'));
 eyedropperToolBtn.addEventListener('click', () => setActiveTool('eyedropper'));
 
-// Keyboard Shortcuts
-window.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-    
-    const key = e.key.toLowerCase();
-    if (key === 'v') {
-        setActiveTool('selection');
-    } else if (key === 'i') {
-        setActiveTool('eyedropper');
-    }
-});
-
 // UI Elements - Sidebar Export
 const exportFileBtn = document.getElementById('export-file');
 const copyCodeBtn = document.getElementById('copy-code');
@@ -68,6 +56,25 @@ const confirmFilenameBtn = document.getElementById('confirm-filename');
 const confirmModal = document.getElementById('confirm-modal');
 const cancelClearBtn = document.getElementById('cancel-clear');
 const confirmClearBtn = document.getElementById('confirm-clear');
+
+// Navigation Elements
+const resetViewBtn = document.getElementById('reset-view');
+
+// Context Menu Elements
+const contextMenu = document.getElementById('context-menu');
+const canvasContextMenu = document.getElementById('canvas-context-menu');
+const ctxClearCanvasBtn = document.getElementById('ctx-clear-canvas');
+
+const ctxDeleteBtn = document.getElementById('ctx-delete');
+const ctxCopyBtn = document.getElementById('ctx-copy');
+const ctxDownloadBtn = document.getElementById('ctx-download');
+const ctxDuplicateBtn = document.getElementById('ctx-duplicate');
+const ctxFlipHBtn = document.getElementById('ctx-flip-h');
+const ctxFlipVBtn = document.getElementById('ctx-flip-v');
+const ctxFrontBtn = document.getElementById('ctx-front');
+const ctxBackBtn = document.getElementById('ctx-back');
+const ctxGroupBtn = document.getElementById('ctx-group');
+const ctxUngroupBtn = document.getElementById('ctx-ungroup');
 
 // Alignment Buttons mapping
 const alignBtns = {
@@ -296,10 +303,22 @@ removeStrokeBtn.addEventListener('click', () => {
     updateSidebarUI();
 });
 
-// Keyboard Shortcuts
+// Keyboard Shortcuts & Navigation
+let isSpaceDown = false;
+
 window.addEventListener('keydown', (e) => {
     const isTextInput = (e.target.tagName === 'INPUT' && (e.target.type === 'text' || e.target.type === 'number')) || e.target.tagName === 'TEXTAREA';
     
+    // Space for panning
+    if (e.code === 'Space' && !isTextInput) {
+        if (!isSpaceDown) {
+            isSpaceDown = true;
+            editor.canvas.style.cursor = 'grab';
+        }
+        e.preventDefault();
+        return;
+    }
+
     // Check for undo/redo first to force commit/blur
     if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'y')) {
         if (isTextInput) e.target.blur(); 
@@ -314,6 +333,11 @@ window.addEventListener('keydown', (e) => {
         const isAppShortcut = (e.ctrlKey || e.metaKey) && ['g', 'backspace'].includes(e.key.toLowerCase());
         if (!isAppShortcut) return;
     }
+    
+    const key = e.key.toLowerCase();
+    if (key === 'v') setActiveTool('selection');
+    if (key === 'i') setActiveTool('eyedropper');
+    
     if ((e.key === 'Delete' || e.key === 'Backspace') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
         editor.deleteSelectedItem();
     }
@@ -326,6 +350,52 @@ window.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'c') copySelectedToClipboard();
     if ((e.ctrlKey || e.metaKey) && e.key === 'x') copySelectedToClipboard().then(() => editor.deleteSelectedItem());
 });
+
+window.addEventListener('keyup', (e) => {
+    if (e.code === 'Space') {
+        isSpaceDown = false;
+        editor.canvas.style.cursor = 'default';
+    }
+});
+
+// Panning and Zooming Events
+editor.canvas.addEventListener('mousedown', (e) => {
+    if (isSpaceDown && e.button === 0) {
+        editor.isPanning = true;
+        editor.lastPoint = new paper.Point(e.clientX, e.clientY);
+        editor.canvas.style.cursor = 'grabbing';
+        e.stopImmediatePropagation();
+    }
+}, true);
+
+window.addEventListener('mousemove', (e) => {
+    if (editor.isPanning) {
+        const currentPoint = new paper.Point(e.clientX, e.clientY);
+        const delta = currentPoint.subtract(editor.lastPoint).divide(editor.view.zoom);
+        editor.pan(delta);
+        editor.lastPoint = currentPoint;
+    }
+});
+
+window.addEventListener('mouseup', () => {
+    if (editor.isPanning) {
+        editor.isPanning = false;
+        editor.canvas.style.cursor = isSpaceDown ? 'grab' : 'default';
+    }
+});
+
+editor.canvas.addEventListener('wheel', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const rect = editor.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const mousePoint = editor.view.viewToProject(new paper.Point(x, y));
+        editor.zoom(e.deltaY, mousePoint);
+    }
+}, { passive: false });
+
+resetViewBtn.addEventListener('click', () => editor.resetView());
 
 async function copySelectedToClipboard() {
     if (editor.selectedItem) {
@@ -369,22 +439,6 @@ window.addEventListener('paste', async (e) => {
         }
     }
 });
-
-// Context Menu Elements
-const contextMenu = document.getElementById('context-menu');
-const canvasContextMenu = document.getElementById('canvas-context-menu');
-const ctxClearCanvasBtn = document.getElementById('ctx-clear-canvas');
-
-const ctxDeleteBtn = document.getElementById('ctx-delete');
-const ctxCopyBtn = document.getElementById('ctx-copy');
-const ctxDownloadBtn = document.getElementById('ctx-download');
-const ctxDuplicateBtn = document.getElementById('ctx-duplicate');
-const ctxFlipHBtn = document.getElementById('ctx-flip-h');
-const ctxFlipVBtn = document.getElementById('ctx-flip-v');
-const ctxFrontBtn = document.getElementById('ctx-front');
-const ctxBackBtn = document.getElementById('ctx-back');
-const ctxGroupBtn = document.getElementById('ctx-group');
-const ctxUngroupBtn = document.getElementById('ctx-ungroup');
 
 // Helper to position menus within window
 function positionMenu(menu, e) {
