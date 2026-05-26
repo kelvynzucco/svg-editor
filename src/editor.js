@@ -221,6 +221,12 @@ export class SvgEditor {
 
         tool.onMouseDown = (event) => {
             if (event.event.button !== 0) return;
+            
+            // Blur any active text inputs when clicking the canvas
+            if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+                document.activeElement.blur();
+            }
+
             const point = event.point;
             hasDuplicatedOnDrag = false;
 
