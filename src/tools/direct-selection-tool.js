@@ -8,6 +8,7 @@ export class DirectSelectionTool {
         this.selectionRect = null;
         this.startPoint = null;
         this.isDragging = false;
+        this.dragAppliedTranslation = new paper.Point(0, 0);
         this.init();
     }
 
@@ -21,6 +22,7 @@ export class DirectSelectionTool {
             const point = event.point;
             this.isDragging = false;
             this.activeComponent = null; 
+            this.dragAppliedTranslation = new paper.Point(0, 0);
             window.dispatchEvent(new CustomEvent('appMouseDown'));
 
             // 1. Check for UI Widgets (Live Corners) - HIGH PRIORITY
@@ -127,7 +129,19 @@ export class DirectSelectionTool {
 
             if (this.dragTargets.length > 0) {
                 this.isDragging = true;
-                this.dragTargets.forEach(t => { t.x += event.delta.x; t.y += event.delta.y; });
+                
+                let desiredTranslation = event.point.subtract(event.downPoint);
+                if (event.modifiers.shift) {
+                    if (Math.abs(desiredTranslation.x) > Math.abs(desiredTranslation.y)) desiredTranslation.y = 0;
+                    else desiredTranslation.x = 0;
+                }
+                
+                const deltaToApply = desiredTranslation.subtract(this.dragAppliedTranslation);
+                this.dragTargets.forEach(t => { 
+                    t.x += deltaToApply.x; 
+                    t.y += deltaToApply.y; 
+                });
+                this.dragAppliedTranslation = desiredTranslation;
                 this.editor.view.update();
             }
         };
