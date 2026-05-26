@@ -411,6 +411,7 @@ window.addEventListener('keydown', (e) => {
     
     const key = e.key.toLowerCase();
     if (key === 'v') setActiveTool('selection');
+    if (key === 'a') setActiveTool('directSelection');
     if (key === 'i') setActiveTool('eyedropper');
     
     if ((e.key === 'Delete' || e.key === 'Backspace') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
@@ -567,7 +568,13 @@ editor.canvas.addEventListener('contextmenu', (e) => {
     }
 });
 
-window.addEventListener('click', () => { 
+window.addEventListener('click', (e) => { 
+    // Do not deselect if clicking the canvas (let the tools handle that)
+    if (e.target === editor.canvas) return;
+    
+    // Do not deselect if we actually have items selected (prevents flash)
+    if (editor.selectedItems.length > 0) return;
+
     contextMenu.classList.add('hidden'); 
     canvasContextMenu.classList.add('hidden');
 });

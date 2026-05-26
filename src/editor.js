@@ -132,9 +132,6 @@ export class SvgEditor {
         const ui = this.uiLayer;
         if (ui) ui.remove();
         
-        const selected = [...this.selectedItems];
-        this.project.deselectAll();
-        
         // Temporarily store artboard state in data to persist size/position in JSON
         this.artboardLayer.data.bounds = { 
             x: this.artboardBounds.x, 
@@ -143,9 +140,10 @@ export class SvgEditor {
             height: this.artboardBounds.height 
         };
 
+        // We no longer deselectAll here because we WANT the selection state 
+        // (including segments/handles) to be preserved in the history JSON.
         const json = this.project.exportJSON();
         
-        selected.forEach(item => item.selected = true);
         if (ui) this.project.addLayer(ui);
         this.drawLayer.activate();
         

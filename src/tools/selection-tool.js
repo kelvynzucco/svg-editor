@@ -21,6 +21,8 @@ export class SelectionTool {
     init() {
         this.tool.onMouseDown = (event) => {
             if (event.event.button !== 0) return;
+            
+            // 1. Force blur on UI inputs
             if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
                 document.activeElement.blur();
             }
@@ -29,7 +31,7 @@ export class SelectionTool {
             this.hasDuplicatedOnDrag = false;
             window.dispatchEvent(new CustomEvent('appMouseDown'));
 
-            // 1. Check UI Handles
+            // 2. Check UI Handles (Scale/Rotate)
             const uiHit = this.editor.uiLayer.hitTest(point, { tolerance: 10, fill: true, stroke: true });
             if (uiHit && uiHit.item && uiHit.item.data) {
                 this.handleType = uiHit.item.data.type;
@@ -55,7 +57,7 @@ export class SelectionTool {
                 }
             }
 
-            // 2. Check Items
+            // 3. Check for Items in Draw Layer
             const hitResult = this.editor.drawLayer.hitTest(point, { segments: true, stroke: true, fill: true, tolerance: 10, curves: true });
             if (hitResult && hitResult.item) {
                 let item = hitResult.item;
@@ -67,22 +69,21 @@ export class SelectionTool {
                     if (!item.selected) this.editor.setSelected(item);
                     this.isDragging = true;
                     this.dragAppliedTranslation = new paper.Point(0, 0);
-                    this.editor.uiLayer.visible = false;
+                    this.editor.uiLayer.visible = false; // Hide UI during drag
                 }
                 return;
             }
 
-            // 3. Check current selection bounds for direct drag
+            // 4. If nothing hit, but clicking inside a multi-item selection bounds
             const hitSelectedBounds = this.editor.selectedItems.some(item => item.strokeBounds.contains(point));
             if (hitSelectedBounds && !event.modifiers.shift) {
                 this.isDragging = true;
                 this.dragAppliedTranslation = new paper.Point(0, 0);
-                this.editor.canvas.style.cursor = 'move';
                 this.editor.uiLayer.visible = false;
                 return;
             }
 
-            // 4. Start Area Selection
+            // 5. Clear selection and start Marquee Selection
             if (!event.modifiers.shift) this.editor.setSelected(null);
             this.startPoint = point;
         };
@@ -107,7 +108,6 @@ export class SelectionTool {
                 const currentPivot = event.modifiers.alt ? this.transformRef.center : this.transformRef.pivot;
                 const startVec = this.transformRef.startPoint.subtract(currentPivot);
                 const currentVec = event.point.subtract(currentPivot);
-                
                 if (Math.abs(startVec.x) < 0.001 || Math.abs(startVec.y) < 0.001) return;
                 
                 let desiredScaleX = currentVec.x / startVec.x;
@@ -122,16 +122,15 @@ export class SelectionTool {
                 if (Math.abs(desiredScaleX) < 0.01) desiredScaleX = desiredScaleX < 0 ? -0.01 : 0.01;
                 if (Math.abs(desiredScaleY) < 0.01) desiredScaleY = desiredScaleY < 0 ? -0.01 : 0.01;
 
-                if (desiredScaleX !== this.transformRef.totalScaleX || desiredScaleY !== this.transformRef.totalScaleY || !currentPivot.equals(this.transformRef.lastPivot)) {
-                    this.editor.selectedItems.forEach(item => {
-                        item.scale(1 / this.transformRef.totalScaleX, 1 / this.transformRef.totalScaleY, this.transformRef.lastPivot);
-                        item.scale(desiredScaleX, desiredScaleY, currentPivot);
-                    });
-                    this.transformRef.totalScaleX = desiredScaleX;
-                    this.transformRef.totalScaleY = desiredScaleY;
-                    this.transformRef.lastPivot = currentPivot;
-                    this.editor.updateTransformUI();
-                }
+                this.editor.selectedItems.forEach(item => {
+                    item.scale(1 / this.transformRef.totalScaleX, 1 / this.transformRef.totalScaleY, this.transformRef.lastPivot);
+                    item.scale(desiredScaleX, desiredScaleY, currentPivot);
+                });
+                
+                this.transformRef.totalScaleX = desiredScaleX;
+                this.transformRef.totalScaleY = desiredScaleY;
+                this.transformRef.lastPivot = currentPivot;
+                this.editor.updateTransformUI();
             } else if (this.isDragging) {
                 if (event.modifiers.alt && !this.hasDuplicatedOnDrag && this.editor.selectedItems.length > 0) {
                     const clones = this.editor.selectedItems.map(item => {
@@ -163,17 +162,21 @@ export class SelectionTool {
 
         this.tool.onMouseUp = (event) => {
             if (this.isDragging || this.isRotating || this.isScaling) this.editor.saveHistory();
+            
             if (this.selectionRect) {
                 const items = this.editor.drawLayer.children;
                 const newSelection = [];
                 for (const item of items) {
                     if (item === this.selectionRect) continue;
-                    if (this.selectionRect.intersects(item) || this.selectionRect.contains(item.bounds.center)) newSelection.push(item);
+                    if (this.selectionRect.intersects(item) || this.selectionRect.contains(item.bounds.center)) {
+                        newSelection.push(item);
+                    }
                 }
                 event.modifiers.shift ? newSelection.forEach(item => this.editor.addToSelection(item)) : this.editor.setSelected(newSelection);
                 this.selectionRect.remove();
                 this.selectionRect = null;
             }
+
             this.isDragging = this.isRotating = this.isScaling = this.hasDuplicatedOnDrag = false;
             this.startPoint = null;
             this.editor.uiLayer.visible = true;

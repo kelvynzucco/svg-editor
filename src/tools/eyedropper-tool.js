@@ -43,5 +43,7 @@ export class EyedropperTool {
 
     activate() {
         this.tool.activate();
+        this.editor.canvas.style.cursor = 'crosshair';
+        this.editor.updateTransformUI();
     }
 }
