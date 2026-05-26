@@ -12,6 +12,37 @@ const importFileBtn = document.getElementById('import-file-btn');
 const importFileInput = document.getElementById('import-file');
 const importCodeBtn = document.getElementById('import-code-btn');
 
+// UI Elements - Left Toolbar
+const selectionToolBtn = document.getElementById('tool-selection');
+
+const tools = {
+    selection: selectionToolBtn
+};
+
+function setActiveTool(toolName) {
+    Object.entries(tools).forEach(([name, btn]) => {
+        if (name === toolName) {
+            btn.classList.add('bg-blue-50', 'text-blue-600', 'shadow-sm');
+            btn.classList.remove('text-gray-400', 'hover:bg-gray-100');
+        } else {
+            btn.classList.remove('bg-blue-50', 'text-blue-600', 'shadow-sm');
+            btn.classList.add('text-gray-400', 'hover:bg-gray-100');
+        }
+    });
+}
+
+selectionToolBtn.addEventListener('click', () => setActiveTool('selection'));
+
+// Keyboard Shortcuts
+window.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    
+    const key = e.key.toLowerCase();
+    if (key === 'v') {
+        setActiveTool('selection');
+    }
+});
+
 // UI Elements - Sidebar Export
 const exportFileBtn = document.getElementById('export-file');
 const copyCodeBtn = document.getElementById('copy-code');

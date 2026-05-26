@@ -54,6 +54,35 @@
     </header>
 
     <div class="flex flex-1 overflow-hidden">
+      <!-- Left Toolbar -->
+      <aside
+        class="w-16 bg-white border-r border-black/10 flex flex-col items-center py-4 gap-4 z-20"
+      >
+        <button
+          id="tool-selection"
+          class="p-3 rounded-lg transition-colors bg-blue-50 text-blue-600 shadow-sm"
+          title="Selection Tool (V)"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="lucide lucide-mouse-pointer-2"
+          >
+            <path
+              d="M4.037 4.437 19.92 10.12a.59.59 0 0 1 .09 1.034l-4.833 3.488a.756.756 0 0 0-.258.391l-3.231 7.907a.59.59 0 0 1-1.095.034L4.044 5.473a.589.589 0 0 1 .71-.755Z"
+            />
+            <path d="m13 13 4 4" />
+          </svg>
+        </button>
+      </aside>
+
       <!-- Main Canvas Area -->
       <main
         id="canvas-container"
