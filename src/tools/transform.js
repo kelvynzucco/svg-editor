@@ -159,3 +159,69 @@ export function distributeSpacing(items, axis, gap = null) {
         });
     }
 }
+
+export function tidyUpGrid(items) {
+    if (!items || items.length < 2) return;
+
+    const itemsArray = [...items];
+    const count = itemsArray.length;
+
+    // Estimate number of columns
+    // We can use the bounding box aspect ratio to guess the grid shape
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    let avgWidth = 0, avgHeight = 0;
+
+    itemsArray.forEach(item => {
+        const b = item.bounds;
+        if (b.left < minX) minX = b.left;
+        if (b.right > maxX) maxX = b.right;
+        if (b.top < minY) minY = b.top;
+        if (b.bottom > maxY) maxY = b.bottom;
+        avgWidth += b.width;
+        avgHeight += b.height;
+    });
+    avgWidth /= count;
+    avgHeight /= count;
+
+    const totalWidth = maxX - minX;
+    const totalHeight = maxY - minY;
+    
+    // Heuristic for columns: 
+    // If we have a lot more width than height, more columns.
+    // Default to a square-ish grid if unsure.
+    let cols = Math.round(Math.sqrt(count * (totalWidth / totalHeight)));
+    cols = Math.max(1, Math.min(count, cols));
+    
+    // Sort items by Y, then X to define the order in the grid
+    itemsArray.sort((a, b) => {
+        if (Math.abs(a.bounds.top - b.bounds.top) < avgHeight / 2) {
+            return a.bounds.left - b.bounds.left;
+        }
+        return a.bounds.top - b.bounds.top;
+    });
+
+    // Calculate current gaps to preserve if possible, or use 20 as default
+    let hGap = 20, vGap = 20;
+    
+    // Position items into the grid
+    let currentX = minX;
+    let currentY = minY;
+    let rowMaxHeight = 0;
+
+    itemsArray.forEach((item, index) => {
+        const col = index % cols;
+        const row = Math.floor(index / cols);
+
+        if (col === 0 && index !== 0) {
+            currentX = minX;
+            currentY += rowMaxHeight + vGap;
+            rowMaxHeight = 0;
+        }
+
+        item.bounds.left = currentX;
+        item.bounds.top = currentY;
+
+        currentX += item.bounds.width + hGap;
+        rowMaxHeight = Math.max(rowMaxHeight, item.bounds.height);
+    });
+}

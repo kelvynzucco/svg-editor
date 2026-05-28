@@ -68,6 +68,10 @@ const iconRegistry = {
         svg: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="2" x="5" y="4" rx="0.5"/><rect width="14" height="2" x="5" y="18" rx="0.5"/><rect width="10" height="2" x="7" y="11" rx="0.5"/></svg>`,
         location: 'Right Sidebar: Distribute Vertical Spacing'
     },
+    'layout-grid': {
+        svg: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>`,
+        location: 'Right Sidebar: Tidy Up Grid'
+    },
     'minus': {
         svg: `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /></svg>`,
         location: 'Right Sidebar: Remove Fill/Stroke'

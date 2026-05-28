@@ -1,6 +1,6 @@
 import './style.css';
 import { SvgEditor } from './editor';
-import { align, flip, distributeSpacing } from './tools/transform';
+import { align, flip, distributeSpacing, tidyUpGrid } from './tools/transform';
 import paper from 'paper';
 import Picker from 'vanilla-picker';
 import { initIcons } from './ui/icons';
@@ -277,6 +277,7 @@ const distributeHBtn = document.getElementById('distribute-h');
 const distributeVBtn = document.getElementById('distribute-v');
 const spacingGapHInput = document.getElementById('spacing-gap-h');
 const spacingGapVInput = document.getElementById('spacing-gap-v');
+const tidyUpBtn = document.getElementById('tidy-up');
 
 distributeHBtn.addEventListener('click', () => {
     distributeSpacing(editor.selectedItems, 'horizontal');
@@ -312,6 +313,13 @@ spacingGapVInput.addEventListener('input', (e) => {
 
 spacingGapVInput.addEventListener('change', () => {
     editor.saveHistory();
+});
+
+tidyUpBtn.addEventListener('click', () => {
+    tidyUpGrid(editor.selectedItems);
+    editor.updateTransformUI();
+    editor.saveHistory();
+    updateSidebarUI();
 });
 
 // Style Elements
@@ -409,6 +417,7 @@ function updateSidebarUI() {
     distributeVBtn.disabled = !hasMultipleSelection;
     spacingGapHInput.disabled = !hasMultipleSelection;
     spacingGapVInput.disabled = !hasMultipleSelection;
+    tidyUpBtn.disabled = !hasMultipleSelection;
 
     if (hasMultipleSelection) {
         const tolerance = 20;
