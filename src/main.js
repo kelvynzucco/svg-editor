@@ -23,7 +23,6 @@ const openProjectBtn = document.getElementById('open-project-btn');
 const openProjectInput = document.getElementById('open-project-input');
 
 importBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
     importMenu.classList.toggle('hidden');
 });
 
@@ -69,7 +68,6 @@ const filenameExtension = document.getElementById('filename-extension');
 let currentSaveType = 'svg'; // 'svg' or 'project'
 
 saveProjectBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
     currentSaveType = 'project';
     filenameModalTitle.innerText = 'Save Project';
     filenameExtension.innerText = '.json';
@@ -177,7 +175,6 @@ const shapeOptions = {
 };
 
 shapeToolBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
     if (editor.currentToolName === 'shape') {
         if (shapeSubmenu.classList.contains('hidden')) {
             const rect = shapeToolBtn.getBoundingClientRect();
@@ -194,7 +191,6 @@ shapeToolBtn.addEventListener('click', (e) => {
 
 Object.entries(shapeOptions).forEach(([key, opt]) => {
     opt.el.addEventListener('click', (e) => {
-        e.stopPropagation();
         Object.values(shapeOptions).forEach(o => {
             o.el.classList.remove('bg-blue-50', 'text-blue-600', 'shadow-sm');
             o.el.classList.add('text-gray-400', 'hover:bg-gray-100');
@@ -340,7 +336,6 @@ sharedPicker.onChange = (color) => {
 
 const openPicker = (e, type) => {
     if (activePickerType && activePickerType !== type) forceCommitPendingStyle();
-    e.stopPropagation();
     activePickerType = type;
     const rect = e.target.getBoundingClientRect();
     pContainer.style.top = `${rect.top}px`;
@@ -442,7 +437,6 @@ window.addEventListener('click', (e) => {
 });
 
 exportBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
     exportMenu.classList.toggle('hidden');
 });
 
