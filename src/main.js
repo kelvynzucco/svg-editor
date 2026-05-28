@@ -1,6 +1,6 @@
 import './style.css';
 import { SvgEditor } from './editor';
-import { align, flip, distributeSpacing, tidyUpGrid } from './tools/transform';
+import { align, flip, distributeSpacing, tidyUpGrid, cycleGrid } from './tools/transform';
 import paper from 'paper';
 import Picker from 'vanilla-picker';
 import { initIcons } from './ui/icons';
@@ -280,8 +280,11 @@ const spacingGapVInput = document.getElementById('spacing-gap-v');
 const tidyUpBtn = document.getElementById('tidy-up');
 const organizeHBtn = document.getElementById('organize-h');
 const organizeVBtn = document.getElementById('organize-v');
+const cycleGridBtn = document.getElementById('cycle-grid');
 
 distributeHBtn.addEventListener('click', () => {
+    const hGap = parseFloat(spacingGapHInput.value) || 20;
+    const vGap = parseFloat(spacingGapVInput.value) || 20;
     distributeSpacing(editor.selectedItems, 'horizontal');
     editor.updateTransformUI();
     editor.saveHistory();
@@ -318,21 +321,36 @@ spacingGapVInput.addEventListener('change', () => {
 });
 
 tidyUpBtn.addEventListener('click', () => {
-    tidyUpGrid(editor.selectedItems, 'grid');
+    const hGap = parseFloat(spacingGapHInput.value) || 20;
+    const vGap = parseFloat(spacingGapVInput.value) || 20;
+    tidyUpGrid(editor.selectedItems, 'grid', null, hGap, vGap);
     editor.updateTransformUI();
     editor.saveHistory();
     updateSidebarUI();
 });
 
 organizeHBtn.addEventListener('click', () => {
-    tidyUpGrid(editor.selectedItems, 'horizontal');
+    const hGap = parseFloat(spacingGapHInput.value) || 20;
+    const vGap = parseFloat(spacingGapVInput.value) || 20;
+    tidyUpGrid(editor.selectedItems, 'horizontal', null, hGap, vGap);
     editor.updateTransformUI();
     editor.saveHistory();
     updateSidebarUI();
 });
 
 organizeVBtn.addEventListener('click', () => {
-    tidyUpGrid(editor.selectedItems, 'vertical');
+    const hGap = parseFloat(spacingGapHInput.value) || 20;
+    const vGap = parseFloat(spacingGapVInput.value) || 20;
+    tidyUpGrid(editor.selectedItems, 'vertical', null, hGap, vGap);
+    editor.updateTransformUI();
+    editor.saveHistory();
+    updateSidebarUI();
+});
+
+cycleGridBtn.addEventListener('click', () => {
+    const hGap = parseFloat(spacingGapHInput.value) || 20;
+    const vGap = parseFloat(spacingGapVInput.value) || 20;
+    cycleGrid(editor.selectedItems, hGap, vGap);
     editor.updateTransformUI();
     editor.saveHistory();
     updateSidebarUI();
@@ -436,6 +454,7 @@ function updateSidebarUI() {
     tidyUpBtn.disabled = !hasMultipleSelection;
     organizeHBtn.disabled = !hasMultipleSelection;
     organizeVBtn.disabled = !hasMultipleSelection;
+    cycleGridBtn.disabled = !hasMultipleSelection;
 
     if (hasMultipleSelection) {
         const tolerance = 20;

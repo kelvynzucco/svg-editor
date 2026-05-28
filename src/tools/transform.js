@@ -160,74 +160,104 @@ export function distributeSpacing(items, axis, gap = null) {
     }
 }
 
-export function tidyUpGrid(items, layout = 'grid') {
+export function tidyUpGrid(items, layout = 'grid', forcedCols = null, hGap = 20, vGap = 20) {
     if (!items || items.length < 2) return;
 
     const itemsArray = [...items];
     const count = itemsArray.length;
 
+    // 1. Calculate selection center to keep layout stable
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    let avgWidth = 0, avgHeight = 0;
-
     itemsArray.forEach(item => {
         const b = item.bounds;
         if (b.left < minX) minX = b.left;
         if (b.right > maxX) maxX = b.right;
         if (b.top < minY) minY = b.top;
         if (b.bottom > maxY) maxY = b.bottom;
-        avgWidth += b.width;
-        avgHeight += b.height;
     });
-    avgWidth /= count;
-    avgHeight /= count;
+    const selectionCenter = { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
 
-    const totalWidth = maxX - minX;
-    const totalHeight = maxY - minY;
-    
+    // 2. Determine columns
     let cols;
-    if (layout === 'horizontal') {
+    if (forcedCols !== null) {
+        cols = forcedCols;
+    } else if (layout === 'horizontal') {
         cols = count;
     } else if (layout === 'vertical') {
         cols = 1;
     } else {
-        // Default grid heuristic
-        cols = Math.round(Math.sqrt(count * (totalWidth / totalHeight)));
+        const totalWidth = maxX - minX;
+        const totalHeight = maxY - minY;
+        cols = Math.round(Math.sqrt(count * (totalWidth / (totalHeight || 1))));
         cols = Math.max(1, Math.min(count, cols));
     }
+    const rows = Math.ceil(count / cols);
     
-    // Sort items for predictable layout
-    // For horizontal/vertical, sorting is simpler (one axis)
-    // For grid, we keep the smart Y-then-X sort
+    // 3. Sort items for predictable order (Y then X)
+    // Using a larger tolerance for Y sorting to handle slightly misaligned items
+    const avgHeight = (maxY - minY) / rows || 50;
     itemsArray.sort((a, b) => {
-        if (layout === 'horizontal') return a.bounds.left - b.bounds.left;
-        if (layout === 'vertical') return a.bounds.top - b.bounds.top;
-        
         if (Math.abs(a.bounds.top - b.bounds.top) < avgHeight / 2) {
             return a.bounds.left - b.bounds.left;
         }
         return a.bounds.top - b.bounds.top;
     });
 
-    // Default gaps
-    let hGap = 20, vGap = 20;
-    
-    let currentX = minX;
-    let currentY = minY;
-    let rowMaxHeight = 0;
-
+    // 4. Calculate max dimensions for each row and column
+    const colWidths = new Array(cols).fill(0);
+    const rowHeights = new Array(rows).fill(0);
     itemsArray.forEach((item, index) => {
         const col = index % cols;
-
-        if (col === 0 && index !== 0) {
-            currentX = minX;
-            currentY += rowMaxHeight + vGap;
-            rowMaxHeight = 0;
-        }
-
-        item.bounds.left = currentX;
-        item.bounds.top = currentY;
-
-        currentX += item.bounds.width + hGap;
-        rowMaxHeight = Math.max(rowMaxHeight, item.bounds.height);
+        const row = Math.floor(index / cols);
+        colWidths[col] = Math.max(colWidths[col], item.bounds.width);
+        rowHeights[row] = Math.max(rowHeights[row], item.bounds.height);
     });
+
+    // 5. Calculate total grid size
+    const totalGridWidth = colWidths.reduce((a, b) => a + b, 0) + (cols - 1) * hGap;
+    const totalGridHeight = rowHeights.reduce((a, b) => a + b, 0) + (rows - 1) * vGap;
+
+    // 6. Calculate starting point to keep it centered
+    let currentY = selectionCenter.y - totalGridHeight / 2;
+    const startX = selectionCenter.x - totalGridWidth / 2;
+
+    // 7. Position items centered within their respective cells
+    for (let r = 0; r < rows; r++) {
+        let currentX = startX;
+        const rowH = rowHeights[r];
+        
+        for (let c = 0; c < cols; c++) {
+            const index = r * cols + c;
+            if (index >= count) break;
+
+            const item = itemsArray[index];
+            const colW = colWidths[c];
+
+            // Center item in cell (colW x rowH)
+            item.bounds.left = currentX + (colW - item.bounds.width) / 2;
+            item.bounds.top = currentY + (rowH - item.bounds.height) / 2;
+
+            currentX += colW + hGap;
+        }
+        currentY += rowH + vGap;
+    }
+}
+
+export function cycleGrid(items, hGap = 20, vGap = 20) {
+    if (!items || items.length < 2) return;
+    const count = items.length;
+
+    // Detect current columns based on center positions
+    const tolerance = 30;
+    const xPositions = [];
+    [...items].sort((a, b) => a.position.x - b.position.x).forEach(item => {
+        let found = xPositions.find(pos => Math.abs(pos - item.position.x) < tolerance);
+        if (!found) xPositions.push(item.position.x);
+    });
+
+    let currentCols = xPositions.length;
+    let nextCols = currentCols + 1;
+    if (nextCols > count) nextCols = 1;
+
+    tidyUpGrid(items, 'grid', nextCols, hGap, vGap);
 }
