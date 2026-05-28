@@ -261,3 +261,26 @@ export function cycleGrid(items, hGap = 20, vGap = 20) {
 
     tidyUpGrid(items, 'grid', nextCols, hGap, vGap);
 }
+
+export function reverseOrder(items, axis) {
+    if (!items || items.length < 2) return;
+    const itemsArray = [...items];
+    
+    // Sort to identify current visual order
+    if (axis === 'horizontal') {
+        itemsArray.sort((a, b) => a.bounds.left - b.bounds.left);
+    } else {
+        itemsArray.sort((a, b) => a.bounds.top - b.bounds.top);
+    }
+
+    // Capture original centers
+    const originalCenters = itemsArray.map(item => item.position.clone());
+    
+    // Reverse the centers array
+    const reversedCenters = [...originalCenters].reverse();
+
+    // Assign reversed centers back to sorted items
+    itemsArray.forEach((item, index) => {
+        item.position = reversedCenters[index];
+    });
+}

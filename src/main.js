@@ -1,6 +1,6 @@
 import './style.css';
 import { SvgEditor } from './editor';
-import { align, flip, distributeSpacing, tidyUpGrid, cycleGrid } from './tools/transform';
+import { align, flip, distributeSpacing, tidyUpGrid, cycleGrid, reverseOrder } from './tools/transform';
 import paper from 'paper';
 import Picker from 'vanilla-picker';
 import { initIcons } from './ui/icons';
@@ -281,6 +281,8 @@ const tidyUpBtn = document.getElementById('tidy-up');
 const organizeHBtn = document.getElementById('organize-h');
 const organizeVBtn = document.getElementById('organize-v');
 const cycleGridBtn = document.getElementById('cycle-grid');
+const reverseHBtn = document.getElementById('reverse-h');
+const reverseVBtn = document.getElementById('reverse-v');
 
 distributeHBtn.addEventListener('click', () => {
     const hGap = parseFloat(spacingGapHInput.value) || 20;
@@ -351,6 +353,20 @@ cycleGridBtn.addEventListener('click', () => {
     const hGap = parseFloat(spacingGapHInput.value) || 20;
     const vGap = parseFloat(spacingGapVInput.value) || 20;
     cycleGrid(editor.selectedItems, hGap, vGap);
+    editor.updateTransformUI();
+    editor.saveHistory();
+    updateSidebarUI();
+});
+
+reverseHBtn.addEventListener('click', () => {
+    reverseOrder(editor.selectedItems, 'horizontal');
+    editor.updateTransformUI();
+    editor.saveHistory();
+    updateSidebarUI();
+});
+
+reverseVBtn.addEventListener('click', () => {
+    reverseOrder(editor.selectedItems, 'vertical');
     editor.updateTransformUI();
     editor.saveHistory();
     updateSidebarUI();
@@ -455,6 +471,8 @@ function updateSidebarUI() {
     organizeHBtn.disabled = !hasMultipleSelection;
     organizeVBtn.disabled = !hasMultipleSelection;
     cycleGridBtn.disabled = !hasMultipleSelection;
+    reverseHBtn.disabled = !hasMultipleSelection;
+    reverseVBtn.disabled = !hasMultipleSelection;
 
     if (hasMultipleSelection) {
         const tolerance = 20;
