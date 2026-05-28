@@ -278,6 +278,8 @@ const distributeVBtn = document.getElementById('distribute-v');
 const spacingGapHInput = document.getElementById('spacing-gap-h');
 const spacingGapVInput = document.getElementById('spacing-gap-v');
 const tidyUpBtn = document.getElementById('tidy-up');
+const organizeHBtn = document.getElementById('organize-h');
+const organizeVBtn = document.getElementById('organize-v');
 
 distributeHBtn.addEventListener('click', () => {
     distributeSpacing(editor.selectedItems, 'horizontal');
@@ -316,7 +318,21 @@ spacingGapVInput.addEventListener('change', () => {
 });
 
 tidyUpBtn.addEventListener('click', () => {
-    tidyUpGrid(editor.selectedItems);
+    tidyUpGrid(editor.selectedItems, 'grid');
+    editor.updateTransformUI();
+    editor.saveHistory();
+    updateSidebarUI();
+});
+
+organizeHBtn.addEventListener('click', () => {
+    tidyUpGrid(editor.selectedItems, 'horizontal');
+    editor.updateTransformUI();
+    editor.saveHistory();
+    updateSidebarUI();
+});
+
+organizeVBtn.addEventListener('click', () => {
+    tidyUpGrid(editor.selectedItems, 'vertical');
     editor.updateTransformUI();
     editor.saveHistory();
     updateSidebarUI();
@@ -418,6 +434,8 @@ function updateSidebarUI() {
     spacingGapHInput.disabled = !hasMultipleSelection;
     spacingGapVInput.disabled = !hasMultipleSelection;
     tidyUpBtn.disabled = !hasMultipleSelection;
+    organizeHBtn.disabled = !hasMultipleSelection;
+    organizeVBtn.disabled = !hasMultipleSelection;
 
     if (hasMultipleSelection) {
         const tolerance = 20;

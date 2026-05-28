@@ -160,14 +160,12 @@ export function distributeSpacing(items, axis, gap = null) {
     }
 }
 
-export function tidyUpGrid(items) {
+export function tidyUpGrid(items, layout = 'grid') {
     if (!items || items.length < 2) return;
 
     const itemsArray = [...items];
     const count = itemsArray.length;
 
-    // Estimate number of columns
-    // We can use the bounding box aspect ratio to guess the grid shape
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     let avgWidth = 0, avgHeight = 0;
 
@@ -186,31 +184,39 @@ export function tidyUpGrid(items) {
     const totalWidth = maxX - minX;
     const totalHeight = maxY - minY;
     
-    // Heuristic for columns: 
-    // If we have a lot more width than height, more columns.
-    // Default to a square-ish grid if unsure.
-    let cols = Math.round(Math.sqrt(count * (totalWidth / totalHeight)));
-    cols = Math.max(1, Math.min(count, cols));
+    let cols;
+    if (layout === 'horizontal') {
+        cols = count;
+    } else if (layout === 'vertical') {
+        cols = 1;
+    } else {
+        // Default grid heuristic
+        cols = Math.round(Math.sqrt(count * (totalWidth / totalHeight)));
+        cols = Math.max(1, Math.min(count, cols));
+    }
     
-    // Sort items by Y, then X to define the order in the grid
+    // Sort items for predictable layout
+    // For horizontal/vertical, sorting is simpler (one axis)
+    // For grid, we keep the smart Y-then-X sort
     itemsArray.sort((a, b) => {
+        if (layout === 'horizontal') return a.bounds.left - b.bounds.left;
+        if (layout === 'vertical') return a.bounds.top - b.bounds.top;
+        
         if (Math.abs(a.bounds.top - b.bounds.top) < avgHeight / 2) {
             return a.bounds.left - b.bounds.left;
         }
         return a.bounds.top - b.bounds.top;
     });
 
-    // Calculate current gaps to preserve if possible, or use 20 as default
+    // Default gaps
     let hGap = 20, vGap = 20;
     
-    // Position items into the grid
     let currentX = minX;
     let currentY = minY;
     let rowMaxHeight = 0;
 
     itemsArray.forEach((item, index) => {
         const col = index % cols;
-        const row = Math.floor(index / cols);
 
         if (col === 0 && index !== 0) {
             currentX = minX;

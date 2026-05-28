@@ -280,16 +280,34 @@
             </div>
 
             <div class="flex items-center gap-2">
-              <button
-                id="tidy-up"
-                class="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded transition disabled:opacity-30 disabled:cursor-not-allowed border border-gray-200 focus:outline-none flex items-center justify-center"
-                title="Tidy Up Grid"
-                disabled
-              >
-                <span data-icon="layout-grid"></span>
-              </button>
+              <div class="flex gap-1">
+                <button
+                  id="tidy-up"
+                  class="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded transition disabled:opacity-30 disabled:cursor-not-allowed border border-gray-200 focus:outline-none flex items-center justify-center"
+                  title="Tidy Up Grid"
+                  disabled
+                >
+                  <span data-icon="layout-grid"></span>
+                </button>
+                <button
+                  id="organize-h"
+                  class="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded transition disabled:opacity-30 disabled:cursor-not-allowed border border-gray-200 focus:outline-none flex items-center justify-center"
+                  title="Stack Horizontal"
+                  disabled
+                >
+                  <span data-icon="columns"></span>
+                </button>
+                <button
+                  id="organize-v"
+                  class="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded transition disabled:opacity-30 disabled:cursor-not-allowed border border-gray-200 focus:outline-none flex items-center justify-center"
+                  title="Stack Vertical"
+                  disabled
+                >
+                  <span data-icon="rows"></span>
+                </button>
+              </div>
               <div class="text-[10px] text-gray-400 font-medium uppercase">
-                Tidy Up
+                Auto Layout
               </div>
             </div>
           </div>
