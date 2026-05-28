@@ -60,6 +60,14 @@ const iconRegistry = {
         svg: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="6" height="12" x="6" y="4" rx="1"/><rect width="6" height="7" x="14" y="9" rx="1"/><path d="M2 20h20"/></svg>`,
         location: 'Right Sidebar: Align Bottom'
     },
+    'distribute-h': {
+        svg: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="2" height="14" x="4" y="5" rx="0.5"/><rect width="2" height="14" x="18" y="5" rx="0.5"/><rect width="2" height="10" x="11" y="7" rx="0.5"/></svg>`,
+        location: 'Right Sidebar: Distribute Horizontal Spacing'
+    },
+    'distribute-v': {
+        svg: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="2" x="5" y="4" rx="0.5"/><rect width="14" height="2" x="5" y="18" rx="0.5"/><rect width="10" height="2" x="7" y="11" rx="0.5"/></svg>`,
+        location: 'Right Sidebar: Distribute Vertical Spacing'
+    },
     'minus': {
         svg: `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /></svg>`,
         location: 'Right Sidebar: Remove Fill/Stroke'

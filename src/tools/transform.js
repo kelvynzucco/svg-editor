@@ -78,3 +78,84 @@ export function flip(items, axis) {
         }
     });
 }
+
+export function distributeSpacing(items, axis, gap = null) {
+    if (!items || items.length < 2) return;
+
+    const itemsArray = Array.isArray(items) ? [...items] : [items];
+    const tolerance = 20; // Tolerance for grouping items into rows/columns
+
+    if (axis === 'horizontal') {
+        // Group items into "slots" (columns) based on their left position
+        const slots = [];
+        
+        // Sort items by left bound to process in order
+        const sortedItems = itemsArray.sort((a, b) => a.bounds.left - b.bounds.left);
+        
+        sortedItems.forEach(item => {
+            let foundSlot = slots.find(s => Math.abs(s.left - item.bounds.left) < tolerance);
+            if (!foundSlot) {
+                foundSlot = { left: item.bounds.left, items: [], maxWidth: 0 };
+                slots.push(foundSlot);
+            }
+            foundSlot.items.push(item);
+            foundSlot.maxWidth = Math.max(foundSlot.maxWidth, item.bounds.width);
+        });
+
+        if (slots.length < 2) return;
+
+        if (gap === null) {
+            const firstSlot = slots[0];
+            const lastSlot = slots[slots.length - 1];
+            const totalWidth = Math.max(...lastSlot.items.map(i => i.bounds.right)) - firstSlot.left;
+            let sumWidths = 0;
+            slots.forEach(s => sumWidths += s.maxWidth);
+            gap = (totalWidth - sumWidths) / (slots.length - 1);
+        }
+
+        let currentX = slots[0].left;
+        slots.forEach(slot => {
+            const deltaX = currentX - slot.left;
+            slot.items.forEach(item => {
+                item.position.x += deltaX;
+            });
+            currentX += slot.maxWidth + gap;
+        });
+    } else if (axis === 'vertical') {
+        // Group items into "slots" (rows) based on their top position
+        const slots = [];
+        
+        // Sort items by top bound to process in order
+        const sortedItems = itemsArray.sort((a, b) => a.bounds.top - b.bounds.top);
+        
+        sortedItems.forEach(item => {
+            let foundSlot = slots.find(s => Math.abs(s.top - item.bounds.top) < tolerance);
+            if (!foundSlot) {
+                foundSlot = { top: item.bounds.top, items: [], maxHeight: 0 };
+                slots.push(foundSlot);
+            }
+            foundSlot.items.push(item);
+            foundSlot.maxHeight = Math.max(foundSlot.maxHeight, item.bounds.height);
+        });
+
+        if (slots.length < 2) return;
+
+        if (gap === null) {
+            const firstSlot = slots[0];
+            const lastSlot = slots[slots.length - 1];
+            const totalHeight = Math.max(...lastSlot.items.map(i => i.bounds.bottom)) - firstSlot.top;
+            let sumHeights = 0;
+            slots.forEach(s => sumHeights += s.maxHeight);
+            gap = (totalHeight - sumHeights) / (slots.length - 1);
+        }
+
+        let currentY = slots[0].top;
+        slots.forEach(slot => {
+            const deltaY = currentY - slot.top;
+            slot.items.forEach(item => {
+                item.position.y += deltaY;
+            });
+            currentY += slot.maxHeight + gap;
+        });
+    }
+}

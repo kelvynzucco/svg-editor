@@ -1,6 +1,6 @@
 import './style.css';
 import { SvgEditor } from './editor';
-import { align, flip } from './tools/transform';
+import { align, flip, distributeSpacing } from './tools/transform';
 import paper from 'paper';
 import Picker from 'vanilla-picker';
 import { initIcons } from './ui/icons';
@@ -272,6 +272,48 @@ Object.entries(alignBtns).forEach(([pos, btn]) => {
     if (btn) btn.addEventListener('click', () => { align(editor.selectedItems, pos, editor.artboardBounds); editor.updateTransformUI(); editor.saveHistory(); });
 });
 
+// Spacing Elements
+const distributeHBtn = document.getElementById('distribute-h');
+const distributeVBtn = document.getElementById('distribute-v');
+const spacingGapHInput = document.getElementById('spacing-gap-h');
+const spacingGapVInput = document.getElementById('spacing-gap-v');
+
+distributeHBtn.addEventListener('click', () => {
+    distributeSpacing(editor.selectedItems, 'horizontal');
+    editor.updateTransformUI();
+    editor.saveHistory();
+    updateSidebarUI();
+});
+
+distributeVBtn.addEventListener('click', () => {
+    distributeSpacing(editor.selectedItems, 'vertical');
+    editor.updateTransformUI();
+    editor.saveHistory();
+    updateSidebarUI();
+});
+
+spacingGapHInput.addEventListener('input', (e) => {
+    const gap = parseFloat(e.target.value) || 0;
+    distributeSpacing(editor.selectedItems, 'horizontal', gap);
+    editor.updateTransformUI();
+    updateSidebarUI();
+});
+
+spacingGapHInput.addEventListener('change', () => {
+    editor.saveHistory();
+});
+
+spacingGapVInput.addEventListener('input', (e) => {
+    const gap = parseFloat(e.target.value) || 0;
+    distributeSpacing(editor.selectedItems, 'vertical', gap);
+    editor.updateTransformUI();
+    updateSidebarUI();
+});
+
+spacingGapVInput.addEventListener('change', () => {
+    editor.saveHistory();
+});
+
 // Style Elements
 const fSwatch = document.getElementById('fill-picker-swatch');
 const fHex = document.getElementById('fill-hex-input');
@@ -358,7 +400,63 @@ window.addEventListener('mousedown', (e) => {
 function updateSidebarUI() {
     const selectedItems = editor.selectedItems;
     const hasSelection = selectedItems && selectedItems.length > 0;
+    const hasMultipleSelection = selectedItems && selectedItems.length >= 2;
+
     Object.values(alignBtns).forEach(btn => { if (btn) btn.disabled = !hasSelection; });
+    
+    // Update Spacing Tool state
+    distributeHBtn.disabled = !hasMultipleSelection;
+    distributeVBtn.disabled = !hasMultipleSelection;
+    spacingGapHInput.disabled = !hasMultipleSelection;
+    spacingGapVInput.disabled = !hasMultipleSelection;
+
+    if (hasMultipleSelection) {
+        const tolerance = 20;
+
+        // Calculate H-Gap
+        const hSlots = [];
+        [...selectedItems].sort((a, b) => a.bounds.left - b.bounds.left).forEach(item => {
+            let found = hSlots.find(s => Math.abs(s.left - item.bounds.left) < tolerance);
+            if (!found) { found = { left: item.bounds.left, items: [], maxWidth: 0 }; hSlots.push(found); }
+            found.items.push(item);
+            found.maxWidth = Math.max(found.maxWidth, item.bounds.width);
+        });
+
+        if (hSlots.length >= 2) {
+            let totalGap = 0;
+            for (let i = 0; i < hSlots.length - 1; i++) {
+                totalGap += hSlots[i+1].left - (hSlots[i].left + hSlots[i].maxWidth);
+            }
+            const avgGap = Math.round((totalGap / (hSlots.length - 1)) * 100) / 100;
+            if (document.activeElement !== spacingGapHInput) spacingGapHInput.value = Math.max(0, avgGap);
+        } else {
+            spacingGapHInput.value = 0;
+        }
+
+        // Calculate V-Gap
+        const vSlots = [];
+        [...selectedItems].sort((a, b) => a.bounds.top - b.bounds.top).forEach(item => {
+            let found = vSlots.find(s => Math.abs(s.top - item.bounds.top) < tolerance);
+            if (!found) { found = { top: item.bounds.top, items: [], maxHeight: 0 }; vSlots.push(found); }
+            found.items.push(item);
+            found.maxHeight = Math.max(found.maxHeight, item.bounds.height);
+        });
+
+        if (vSlots.length >= 2) {
+            let totalGap = 0;
+            for (let i = 0; i < vSlots.length - 1; i++) {
+                totalGap += vSlots[i+1].top - (vSlots[i].top + vSlots[i].maxHeight);
+            }
+            const avgGap = Math.round((totalGap / (vSlots.length - 1)) * 100) / 100;
+            if (document.activeElement !== spacingGapVInput) spacingGapVInput.value = Math.max(0, avgGap);
+        } else {
+            spacingGapVInput.value = 0;
+        }
+    } else {
+        spacingGapHInput.value = 0;
+        spacingGapVInput.value = 0;
+    }
+
     if (hasSelection) {
         const style = editor.getSelectionStyle();
         if (style) {
