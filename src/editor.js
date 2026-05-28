@@ -3,6 +3,7 @@ import { SelectionTool } from './tools/selection-tool';
 import { DirectSelectionTool } from './tools/direct-selection-tool';
 import { EyedropperTool } from './tools/eyedropper-tool';
 import { ShapeTool } from './tools/shape-tool';
+import { storage } from './storage';
 
 export class SvgEditor {
     constructor(canvasId) {
@@ -47,8 +48,7 @@ export class SvgEditor {
         this.resize();
         window.addEventListener('resize', () => this.resize());
         
-        this.loadFromLocalStorage();
-        this.saveHistory();
+        this.initStorage();
         
         // Initial artboard positioning
         this.artboardBounds.center = this.view.center;
@@ -59,6 +59,11 @@ export class SvgEditor {
         this.lastPoint = null;
 
         this.showCornerWidgets = false; // Toggle for Live Corners
+    }
+
+    async initStorage() {
+        await this.loadFromLocalStorage();
+        this.saveHistory();
     }
 
     activateCornerRounding() {
@@ -164,13 +169,23 @@ export class SvgEditor {
         return json;
     }
 
-    saveToLocalStorage() {
+    async saveToLocalStorage() {
         if (this.isRestoring) return;
-        localStorage.setItem('svg-editor-work', this._getSnapshot());
+        await storage.set('svg-editor-work', this._getSnapshot());
     }
 
-    loadFromLocalStorage() {
-        const savedWork = localStorage.getItem('svg-editor-work');
+    async loadFromLocalStorage() {
+        let savedWork = await storage.get('svg-editor-work');
+        
+        // Fallback to localStorage for migration
+        if (!savedWork) {
+            savedWork = localStorage.getItem('svg-editor-work');
+            if (savedWork) {
+                await storage.set('svg-editor-work', savedWork);
+                localStorage.removeItem('svg-editor-work');
+            }
+        }
+
         if (savedWork) {
             try {
                 this.isRestoring = true;
@@ -222,7 +237,7 @@ export class SvgEditor {
         if (this.isRestoring) return;
         
         const state = this._getSnapshot();
-        localStorage.setItem('svg-editor-work', state);
+        storage.set('svg-editor-work', state);
 
         if (this.historyIndex >= 0 && this.history[this.historyIndex] === state) return;
 
@@ -280,7 +295,54 @@ export class SvgEditor {
 
         this.updateTransformUI();
         this.updateUI();
-        localStorage.setItem('svg-editor-work', json);
+        storage.set('svg-editor-work', json);
+    }
+
+    saveProjectFile(fileName = 'project.json') {
+        const state = this._getSnapshot();
+        const blob = new Blob([state], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
+
+    async loadProjectFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const json = e.target.result;
+                    this.isRestoring = true;
+                    this.project.clear();
+                    this.project.importJSON(json);
+                    this._restoreLayers();
+                    
+                    if (this.artboardLayer.data && this.artboardLayer.data.bounds) {
+                        const b = this.artboardLayer.data.bounds;
+                        this.artboardBounds = new paper.Rectangle(b.x, b.y, b.width, b.height);
+                    }
+                    this.renderArtboard();
+                    
+                    this.isRestoring = false;
+                    this.history = [];
+                    this.historyIndex = -1;
+                    this.saveHistory();
+                    this.updateUI();
+                    this.updateTransformUI();
+                    resolve();
+                } catch (err) {
+                    this.isRestoring = false;
+                    reject(err);
+                }
+            };
+            reader.onerror = () => reject(new Error('Failed to read file'));
+            reader.readAsText(file);
+        });
     }
 
     clearCanvas() {
@@ -774,7 +836,7 @@ export class SvgEditor {
         if (shouldSaveHistory) {
             this.saveHistory();
         } else {
-            localStorage.setItem('svg-editor-work', this._getSnapshot());
+            storage.set('svg-editor-work', this._getSnapshot());
         }
         
         this.view.update();

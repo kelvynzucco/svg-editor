@@ -16,6 +16,38 @@ const importFileBtn = document.getElementById('import-file-btn');
 const importFileInput = document.getElementById('import-file');
 const importCodeBtn = document.getElementById('import-code-btn');
 
+const saveProjectBtn = document.getElementById('save-project-btn');
+const openProjectBtn = document.getElementById('open-project-btn');
+const openProjectInput = document.getElementById('open-project-input');
+
+// Modal Elements for Filename
+const filenameModalTitle = document.getElementById('filename-modal-title');
+const filenameExtension = document.getElementById('filename-extension');
+let currentSaveType = 'svg'; // 'svg' or 'project'
+
+saveProjectBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    currentSaveType = 'project';
+    filenameModalTitle.innerText = 'Save Project';
+    filenameExtension.innerText = '.json';
+    filenameModal.classList.remove('hidden');
+    filenameInput.focus();
+    filenameInput.select();
+    exportMenu.classList.add('hidden');
+});
+
+openProjectBtn.addEventListener('click', () => openProjectInput.click());
+openProjectInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    editor.loadProjectFile(file)
+        .then(() => {
+            updateSidebarUI();
+            initIcons();
+        })
+        .catch(err => alert('Error loading project: ' + err));
+});
+
 // Lock Shortcuts Toggle
 const toggleLockBtn = document.getElementById('toggle-lock');
 const lockIconUnlocked = document.getElementById('lock-icon-unlocked');
@@ -634,13 +666,29 @@ Object.entries(alignBtns).forEach(([pos, btn]) => {
     if (btn) btn.addEventListener('click', () => { align(editor.selectedItems, pos, editor.artboardBounds); editor.updateTransformUI(); editor.saveHistory(); });
 });
 
-exportFileBtn.addEventListener('click', () => { filenameModal.classList.remove('hidden'); filenameInput.focus(); filenameInput.select(); });
+exportFileBtn.addEventListener('click', () => {
+    currentSaveType = 'svg';
+    filenameModalTitle.innerText = 'Save SVG';
+    filenameExtension.innerText = '.svg';
+    filenameModal.classList.remove('hidden');
+    filenameInput.focus();
+    filenameInput.select();
+});
+
 closeFilenameModalBtn.addEventListener('click', () => filenameModal.classList.add('hidden'));
+
 confirmFilenameBtn.addEventListener('click', () => {
     let fileName = filenameInput.value.trim();
     if (!fileName) fileName = 'my-design';
-    if (!fileName.endsWith('.svg')) fileName += '.svg';
-    editor.exportSVG(fileName);
+    
+    if (currentSaveType === 'svg') {
+        if (!fileName.endsWith('.svg')) fileName += '.svg';
+        editor.exportSVG(fileName);
+    } else {
+        if (!fileName.endsWith('.json')) fileName += '.json';
+        editor.saveProjectFile(fileName);
+    }
+    
     filenameModal.classList.add('hidden');
 });
 
