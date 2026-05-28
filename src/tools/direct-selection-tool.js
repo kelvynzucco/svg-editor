@@ -27,7 +27,8 @@ export class DirectSelectionTool {
 
             // 1. Check for UI Widgets (Live Corners) - HIGH PRIORITY
             if (this.editor.showCornerWidgets) {
-                const uiHit = this.editor.uiLayer.hitTest(point, { tolerance: 15, fill: true, stroke: true });
+                const zoomScale = 1 / this.editor.view.zoom;
+                const uiHit = this.editor.uiLayer.hitTest(point, { tolerance: 15 * zoomScale, fill: true, stroke: true });
                 if (uiHit && uiHit.item && uiHit.item.data && uiHit.item.data.type === 'corner-widget') {
                     const seg = uiHit.item.data.segment;
                     
@@ -201,3 +202,4 @@ export class DirectSelectionTool {
         this.editor.view.update();
     }
 }
+

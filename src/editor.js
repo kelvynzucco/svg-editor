@@ -457,6 +457,8 @@ export class SvgEditor {
         if (!this.uiLayer) return;
         this.uiLayer.clear();
         
+        const zoomScale = 1 / this.view.zoom;
+
         // --- Selection Tool UI (Bounding Box) ---
         if (this.currentToolName === 'selection') {
             const bounds = this.getSelectionBounds();
@@ -464,23 +466,25 @@ export class SvgEditor {
                 this.uiLayer.activate();
                 const rect = new paper.Path.Rectangle(bounds);
                 rect.strokeColor = '#3b82f6';
-                rect.strokeWidth = 1;
-                rect.dashArray = [4, 2];
+                rect.strokeWidth = 1 * zoomScale;
+                rect.dashArray = [4 * zoomScale, 2 * zoomScale];
                 rect.data.isTool = true;
 
                 const corners = { topLeft: bounds.topLeft, topRight: bounds.topRight, bottomLeft: bounds.bottomLeft, bottomRight: bounds.bottomRight };
                 for (const [key, pos] of Object.entries(corners)) {
-                    const handle = new paper.Path.Circle(pos, 5);
+                    const handle = new paper.Path.Circle(pos, 5 * zoomScale);
                     handle.fillColor = 'white';
                     handle.strokeColor = '#3b82f6';
+                    handle.strokeWidth = 1 * zoomScale;
                     handle.data = { type: 'scale-' + key, isTool: true };
                 }
 
-                const rotateHandlePos = bounds.topCenter.subtract(new paper.Point(0, 30));
+                const rotateHandlePos = bounds.topCenter.subtract(new paper.Point(0, 30 * zoomScale));
                 const line = new paper.Path.Line(bounds.topCenter, rotateHandlePos);
                 line.strokeColor = '#3b82f6';
+                line.strokeWidth = 1 * zoomScale;
                 line.data.isTool = true;
-                const rotateHandle = new paper.Path.Circle(rotateHandlePos, 6);
+                const rotateHandle = new paper.Path.Circle(rotateHandlePos, 6 * zoomScale);
                 rotateHandle.fillColor = '#3b82f6';
                 rotateHandle.data = { type: 'rotate', isTool: true };
             }
@@ -499,7 +503,7 @@ export class SvgEditor {
                             const isSharp = !seg.data || !seg.data.originalPoint;
                             
                             if (isSharp || isExistingRounded) {
-                                this._drawCornerWidget(seg);
+                                this._drawCornerWidget(seg, zoomScale);
                             }
                         }
                     });
@@ -511,7 +515,7 @@ export class SvgEditor {
         this.drawLayer.activate();
     }
 
-    _drawCornerWidget(seg) {
+    _drawCornerWidget(seg, zoomScale = 1) {
         if (!seg.data) seg.data = {};
         const p2 = seg.data.originalPoint ? new paper.Point(seg.data.originalPoint) : seg.point;
         
@@ -530,15 +534,15 @@ export class SvgEditor {
         else bisector = bisector.normalize();
 
         const currentRadius = seg.data.currentRadius || 0;
-        const widgetDist = 15 + (currentRadius * 0.5); 
+        const widgetDist = (15 * zoomScale) + (currentRadius * 0.5); 
         const widgetPos = p2.add(bisector.multiply(widgetDist));
 
-        const widget = new paper.Path.Circle(widgetPos, 5);
+        const widget = new paper.Path.Circle(widgetPos, 5 * zoomScale);
         widget.fillColor = 'white';
         widget.strokeColor = '#3b82f6';
-        widget.strokeWidth = 1.5;
+        widget.strokeWidth = 1.5 * zoomScale;
         widget.shadowColor = new paper.Color(0,0,0,0.2);
-        widget.shadowBlur = 4;
+        widget.shadowBlur = 4 * zoomScale;
         widget.data = { type: 'corner-widget', segment: seg, isTool: true };
     }
 

@@ -32,7 +32,8 @@ export class SelectionTool {
             window.dispatchEvent(new CustomEvent('appMouseDown'));
 
             // 2. Check UI Handles (Scale/Rotate)
-            const uiHit = this.editor.uiLayer.hitTest(point, { tolerance: 10, fill: true, stroke: true });
+            const zoomScale = 1 / this.editor.view.zoom;
+            const uiHit = this.editor.uiLayer.hitTest(point, { tolerance: 10 * zoomScale, fill: true, stroke: true });
             if (uiHit && uiHit.item && uiHit.item.data) {
                 this.handleType = uiHit.item.data.type;
                 if (this.handleType === 'rotate') {
@@ -58,7 +59,7 @@ export class SelectionTool {
             }
 
             // 3. Check for Items in Draw Layer
-            const hitResult = this.editor.drawLayer.hitTest(point, { segments: true, stroke: true, fill: true, tolerance: 10, curves: true });
+            const hitResult = this.editor.drawLayer.hitTest(point, { segments: true, stroke: true, fill: true, tolerance: 10 * zoomScale, curves: true });
             if (hitResult && hitResult.item) {
                 let item = hitResult.item;
                 while (item.parent && item.parent !== this.editor.drawLayer) item = item.parent;
