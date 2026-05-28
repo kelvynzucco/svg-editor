@@ -12,6 +12,8 @@ initIcons();
 const editor = new SvgEditor('editor-canvas');
 
 // UI Elements - Header
+const importBtn = document.getElementById('import-btn');
+const importMenu = document.getElementById('import-menu');
 const importFileBtn = document.getElementById('import-file-btn');
 const importFileInput = document.getElementById('import-file');
 const importCodeBtn = document.getElementById('import-code-btn');
@@ -19,6 +21,47 @@ const importCodeBtn = document.getElementById('import-code-btn');
 const saveProjectBtn = document.getElementById('save-project-btn');
 const openProjectBtn = document.getElementById('open-project-btn');
 const openProjectInput = document.getElementById('open-project-input');
+
+importBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    importMenu.classList.toggle('hidden');
+});
+
+importFileBtn.addEventListener('click', () => {
+    importFileInput.click();
+    importMenu.classList.add('hidden');
+});
+
+importFileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => editor.importSVG(ev.target.result).catch(err => alert('Error: ' + err));
+    reader.readAsText(file);
+    e.target.value = ''; // Reset to allow re-importing same file
+});
+
+openProjectBtn.addEventListener('click', () => {
+    openProjectInput.click();
+    importMenu.classList.add('hidden');
+});
+
+openProjectInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    editor.loadProjectFile(file)
+        .then(() => {
+            updateSidebarUI();
+            initIcons();
+        })
+        .catch(err => alert('Error loading project: ' + err));
+    e.target.value = ''; // Reset
+});
+
+importCodeBtn.addEventListener('click', () => {
+    codeModal.classList.remove('hidden');
+    importMenu.classList.add('hidden');
+});
 
 // Modal Elements for Filename
 const filenameModalTitle = document.getElementById('filename-modal-title');
@@ -34,18 +77,6 @@ saveProjectBtn.addEventListener('click', (e) => {
     filenameInput.focus();
     filenameInput.select();
     exportMenu.classList.add('hidden');
-});
-
-openProjectBtn.addEventListener('click', () => openProjectInput.click());
-openProjectInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    editor.loadProjectFile(file)
-        .then(() => {
-            updateSidebarUI();
-            initIcons();
-        })
-        .catch(err => alert('Error loading project: ' + err));
 });
 
 // Lock Shortcuts Toggle
@@ -241,6 +272,10 @@ const alignBtns = {
     bottom: document.getElementById('align-bottom')
 };
 
+Object.entries(alignBtns).forEach(([pos, btn]) => {
+    if (btn) btn.addEventListener('click', () => { align(editor.selectedItems, pos, editor.artboardBounds); editor.updateTransformUI(); editor.saveHistory(); });
+});
+
 // Style Elements
 const fSwatch = document.getElementById('fill-picker-swatch');
 const fHex = document.getElementById('fill-hex-input');
@@ -398,6 +433,7 @@ window.addEventListener('click', (e) => {
     const dsMenu = document.getElementById('ds-context-menu');
     if (dsMenu && !dsMenu.contains(e.target)) dsMenu.classList.add('hidden');
     if (!exportBtn.contains(e.target)) exportMenu.classList.add('hidden');
+    if (!importBtn.contains(e.target)) importMenu.classList.add('hidden');
     if (!shapeToolBtn.contains(e.target) && !shapeSubmenu.contains(e.target)) shapeSubmenu.classList.add('hidden');
     if (!contextMenu.contains(e.target) && !canvasContextMenu.contains(e.target)) {
         contextMenu.classList.add('hidden');
@@ -646,25 +682,6 @@ ctxFrontBtn.addEventListener('click', () => { editor.bringToFrontSelected(); con
 ctxBackBtn.addEventListener('click', () => { editor.sendToBackSelected(); contextMenu.classList.add('hidden'); });
 ctxGroupBtn.addEventListener('click', () => { editor.groupSelectedItems(); contextMenu.classList.add('hidden'); });
 ctxUngroupBtn.addEventListener('click', () => { editor.ungroupSelectedItems(); contextMenu.classList.add('hidden'); });
-
-importFileBtn.addEventListener('click', () => importFileInput.click());
-importFileInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => editor.importSVG(ev.target.result).catch(err => alert('Error: ' + err));
-    reader.readAsText(file);
-});
-importCodeBtn.addEventListener('click', () => codeModal.classList.remove('hidden'));
-closeModalBtn.addEventListener('click', () => codeModal.classList.add('hidden'));
-confirmCodeBtn.addEventListener('click', () => {
-    const code = svgCodeInput.value.trim();
-    if (code) editor.importSVG(code).then(() => { codeModal.classList.add('hidden'); svgCodeInput.value = ''; }).catch(err => alert('Invalid SVG code: ' + err));
-});
-
-Object.entries(alignBtns).forEach(([pos, btn]) => {
-    if (btn) btn.addEventListener('click', () => { align(editor.selectedItems, pos, editor.artboardBounds); editor.updateTransformUI(); editor.saveHistory(); });
-});
 
 exportFileBtn.addEventListener('click', () => {
     currentSaveType = 'svg';
