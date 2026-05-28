@@ -638,8 +638,15 @@ export class SvgEditor {
 
         if (theta < 0.001) return;
 
-        // Constraint: max radius is half of the shortest adjacent segment (0.5 instead of 0.48 to allow perfect circles)
-        const maxR = Math.min(p1.subtract(pOrig).length, p3.subtract(pOrig).length) * 0.5;
+        // Constraint: max radius is half of the shortest adjacent segment if the neighbor is also being rounded.
+        // If the neighbor is not selected, we allow rounding up to 99% of the edge length.
+        const prevIsSelected = prevSeg.selected;
+        const nextIsSelected = nextSeg.selected;
+
+        const maxR = Math.min(
+            d1.length * (prevIsSelected ? 0.5 : 0.99),
+            d2.length * (nextIsSelected ? 0.5 : 0.99)
+        );
         const finalR = Math.min(radius, maxR);
         
         if (finalR <= 0) return;
