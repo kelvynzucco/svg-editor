@@ -514,10 +514,14 @@ export class SvgEditor {
     _drawCornerWidget(seg) {
         if (!seg.data) seg.data = {};
         const p2 = seg.data.originalPoint ? new paper.Point(seg.data.originalPoint) : seg.point;
-        const p1 = (seg.previous || (seg.path.closed ? seg.path.lastSegment : null))?.point;
-        const p3 = (seg.next || (seg.path.closed ? seg.path.firstSegment : null))?.point;
+        
+        const prevSeg = seg.previous || (seg.path.closed ? seg.path.lastSegment : null);
+        const nextSeg = seg.next || (seg.path.closed ? seg.path.firstSegment : null);
+        if (!prevSeg || !nextSeg) return;
 
-        if (!p1 || !p3) return;
+        // Use original points for visualization to ensure widgets stay in the correct relative positions
+        const p1 = (prevSeg.data && prevSeg.data.originalPoint) ? new paper.Point(prevSeg.data.originalPoint) : prevSeg.point;
+        const p3 = (nextSeg.data && nextSeg.data.originalPoint) ? new paper.Point(nextSeg.data.originalPoint) : nextSeg.point;
 
         const v1 = p1.subtract(p2).normalize();
         const v2 = p3.subtract(p2).normalize();
@@ -611,10 +615,16 @@ export class SvgEditor {
         if (!seg) return;
 
         const pOrig = (seg.data && seg.data.originalPoint) ? new paper.Point(seg.data.originalPoint) : seg.point.clone();
-        const p1 = (seg.previous || (path.closed ? path.lastSegment : null))?.point;
-        const p3 = (seg.next || (path.closed ? path.firstSegment : null))?.point;
+        
+        const prevSeg = seg.previous || (path.closed ? path.lastSegment : null);
+        const nextSeg = seg.next || (path.closed ? path.firstSegment : null);
 
-        if (!p1 || !p3) return;
+        if (!prevSeg || !nextSeg) return;
+
+        // Use original points for distance and direction calculations to ensure consistent rounding 
+        // even when multiple adjacent corners are being rounded simultaneously.
+        const p1 = (prevSeg.data && prevSeg.data.originalPoint) ? new paper.Point(prevSeg.data.originalPoint) : prevSeg.point;
+        const p3 = (nextSeg.data && nextSeg.data.originalPoint) ? new paper.Point(nextSeg.data.originalPoint) : nextSeg.point;
 
         const d1 = p1.subtract(pOrig);
         const d2 = p3.subtract(pOrig);
@@ -628,8 +638,8 @@ export class SvgEditor {
 
         if (theta < 0.001) return;
 
-        // Constraint: max radius is half of the shortest adjacent segment
-        const maxR = Math.min(p1.subtract(pOrig).length, p3.subtract(pOrig).length) * 0.48;
+        // Constraint: max radius is half of the shortest adjacent segment (0.5 instead of 0.48 to allow perfect circles)
+        const maxR = Math.min(p1.subtract(pOrig).length, p3.subtract(pOrig).length) * 0.5;
         const finalR = Math.min(radius, maxR);
         
         if (finalR <= 0) return;
